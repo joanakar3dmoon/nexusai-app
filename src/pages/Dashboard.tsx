@@ -1,5 +1,5 @@
 import { motion } from "motion/react";
-import { BrainCircuit, Bot, Code2, Settings, CreditCard, LogOut, Menu, X, Send, Loader2, DollarSign, Download, Globe, Smartphone, ExternalLink } from "lucide-react";
+import { BrainCircuit, Bot, Code2, Settings, CreditCard, LogOut, Menu, X, Send, Loader2, DollarSign, Download, Globe, Smartphone, ExternalLink, Eye, ChevronRight } from "lucide-react";
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -220,6 +220,25 @@ Devuelve SOLO el código HTML completo (todo en un solo archivo).`
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
+                  <div className="mb-4 p-3 rounded-xl border border-violet-500/20 bg-violet-500/5">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Badge className="bg-violet-500/20 text-violet-300 border-violet-500/30 text-[10px]">NUEVO</Badge>
+                      <span className="text-sm font-medium text-violet-300">🧠 Agente Constructor con Preview en Vivo</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground mb-3">
+                      Describe tu app y mírala construirse en tiempo real. Puedes interactuar con la preview 
+                      y dar feedback mientras se genera.
+                    </p>
+                    <Button 
+                      size="sm" 
+                      className="w-full cursor-pointer gap-2 bg-violet-600 hover:bg-violet-500" 
+                      onClick={() => navigate("/builder")}
+                    >
+                      <Eye className="w-3.5 h-3.5" />
+                      Abrir Constructor con Preview
+                      <ChevronRight className="w-3.5 h-3.5" />
+                    </Button>
+                  </div>
                   <p className="text-sm text-muted-foreground mb-4">
                     Describe la app que quieres crear. La IA generará el código completo 
                     con anuncios AdMob y enlaces de afiliados Amazon integrados.
