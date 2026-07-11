@@ -26,10 +26,15 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Inicializar DB al arrancar
+# Inicializar DB y seed al arrancar
 @app.on_event("startup")
 def startup():
     init_db()
+    try:
+        from seed import seed
+        seed()
+    except Exception as e:
+        print(f"⚠️ Seed no ejecutado: {e}")
 
 # Health check
 @app.get("/api/health")
