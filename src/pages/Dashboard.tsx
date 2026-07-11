@@ -1,62 +1,74 @@
 import { motion } from "motion/react";
-import { BrainCircuit, Bot, Code2, Settings, CreditCard, LogOut, Menu, X, Send, Loader2, DollarSign, Download, Globe, Smartphone, ExternalLink, Eye, ChevronRight } from "lucide-react";
+import {
+  BrainCircuit, Bot, Code2, Settings, CreditCard, LogOut, Menu, X,
+  Send, Loader2, DollarSign, Download, Globe, Smartphone, ExternalLink,
+  Eye, ChevronRight, Trash2, RefreshCw
+} from "lucide-react";
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/lib/auth";
 import { useNavigate } from "react-router-dom";
+import api from "@/lib/nexus-api";
 
-type AppGeneration = {
+type AppRecord = {
   id: string;
   name: string;
   description: string;
-  status: "pending" | "generating" | "completed" | "error";
-  sourceCode?: string;
-  apkUrl?: string;
-  screenshot?: string;
-  createdAt: string;
+  status: string;
+  views: number;
+  downloads: number;
+  revenue: number;
+  created_at: string;
 };
 
 export default function Dashboard() {
-  const { user, signOut, isAdmin } = useAuth();
+  const { user, signOut, isAdmin, refreshUser } = useAuth();
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [prompt, setPrompt] = useState("");
   const [generating, setGenerating] = useState(false);
-  const [generations, setGenerations] = useState<AppGeneration[]>([]);
+  const [apps, setApps] = useState<AppRecord[]>([]);
   const [activeTab, setActiveTab] = useState<"generator" | "myapps" | "credits">("generator");
-  const [credits, setCredits] = useState(50);
   const [statusLog, setStatusLog] = useState<string[]>([]);
-  const [selectedApp, setSelectedApp] = useState<AppGeneration | null>(null);
+  const [selectedCode, setSelectedCode] = useState<string | null>(null);
+  const [loadingApps, setLoadingApps] = useState(false);
+
+  // Cargar apps reales del backend al montar
+  useEffect(() => {
+    if (!user) return;
+    loadApps();
+  }, [user]);
+
+  const loadApps = async () => {
+    if (!user) return;
+    setLoadingApps(true);
+    try {
+      const data = await api.getUserApps(user.id);
+      setApps(data || []);
+    } catch {
+      // Si el backend no está disponible, array vacío
+    } finally {
+      setLoadingApps(false);
+    }
+  };
 
   const addLog = (msg: string) => {
     setStatusLog(prev => [...prev, `[${new Date().toLocaleTimeString()}] ${msg}`]);
   };
 
   const handleGenerate = async () => {
-    if (!prompt.trim() || generating) return;
-    if (credits < 5) {
+    if (!prompt.trim() || generating || !user) return;
+    if (user.credits < 5) {
       addLog("❌ Créditos insuficientes. Necesitas al menos 5 créditos.");
       return;
     }
 
     setGenerating(true);
-    setCredits(prev => prev - 5);
-    const id = crypto.randomUUID();
     const appName = prompt.trim().split(" ").slice(0, 3).join(" ") || "Mi App";
-    
-    const generation: AppGeneration = {
-      id,
-      name: appName,
-      description: prompt.trim(),
-      status: "generating",
-      createdAt: new Date().toISOString(),
-    };
-    setGenerations(prev => [generation, ...prev]);
     addLog(`🚀 Generando "${appName}"...`);
 
-    // Use freellm.net API to generate code
     try {
       addLog("🔗 Conectando con freeLLM...");
       const response = await fetch("https://api.freellm.net/v1/chat/completions", {
@@ -91,43 +103,39 @@ Devuelve SOLO el código HTML completo (todo en un solo archivo).`
         }),
       });
 
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
-      }
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
-      addLog("✅ Respuesta recibida de freeLLM, generando código...");
+      addLog("✅ Respuesta recibida de freeLLM...");
       const data = await response.json();
-      const fullCode = data.choices?.[0]?.message?.content || "";
+      let code = data.choices?.[0]?.message?.content || "";
 
-      // Extract HTML code from the response
-      let htmlCode = fullCode;
-      if (fullCode.includes("```html")) {
-        htmlCode = fullCode.split("```html")[1].split("```")[0];
-      } else if (fullCode.includes("```")) {
-        htmlCode = fullCode.split("```")[1].split("```")[0];
+      if (code.includes("```html")) code = code.split("```html")[1].split("```")[0];
+      else if (code.includes("```")) code = code.split("```")[1].split("```")[0];
+
+      addLog("💾 Guardando en base de datos...");
+
+      // Guardar en backend REAL
+      try {
+        await api.createApp({
+          user_id: user.id,
+          name: appName,
+          description: prompt.trim(),
+          category: "general",
+          prompt: prompt.trim(),
+          source_code: code,
+          monetization: { admob: true, amazon: true, freellm: true, pwa: true },
+        });
+        addLog("✅ App guardada permanentemente en la base de datos");
+        await refreshUser();
+        await loadApps();
+      } catch (e) {
+        addLog("⚠️ App generada pero falló al guardar en BD (backend no disponible)");
       }
 
-      // Generate a shareable page via data URI (or we could save it)
-      const blob = new Blob([htmlCode], { type: "text/html" });
-      const url = URL.createObjectURL(blob);
-
-      setGenerations(prev => prev.map(g => 
-        g.id === id ? { 
-          ...g, 
-          status: "completed", 
-          sourceCode: htmlCode,
-        } : g
-      ));
-      
-      setCredits(prev => prev + 1); // Bonus credit for generation
+      setPrompt("");
       addLog(`✅ "${appName}" generada con éxito!`);
-      addLog(`💡 Créditos restantes: ${credits - 5 + 1}`);
     } catch (err) {
       addLog(`❌ Error: ${err instanceof Error ? err.message : "Error de conexión"}`);
-      setGenerations(prev => prev.map(g => 
-        g.id === id ? { ...g, status: "error" } : g
-      ));
-      setCredits(prev => prev + 5); // Refund credits on error
     } finally {
       setGenerating(false);
     }
@@ -138,6 +146,8 @@ Devuelve SOLO el código HTML completo (todo en un solo archivo).`
     { id: "myapps", icon: Smartphone, label: "Mis Apps" },
     { id: "credits", icon: DollarSign, label: "Créditos" },
   ];
+
+  const credits = user?.credits ?? 0;
 
   return (
     <div className="min-h-screen bg-background text-foreground flex">
@@ -166,6 +176,7 @@ Devuelve SOLO el código HTML completo (todo en un solo archivo).`
         <div className="p-3 border-t border-border space-y-2">
           <div className="text-xs text-muted-foreground px-3">
             <span className="block">{user?.email}</span>
+            <span className="block text-[10px] mt-0.5">{credits} créditos</span>
             {isAdmin && <Badge variant="outline" className="mt-1 text-[10px]">Admin</Badge>}
           </div>
           {isAdmin && (
@@ -289,52 +300,29 @@ Devuelve SOLO el código HTML completo (todo en un solo archivo).`
                   </CardContent>
                 </Card>
               )}
-
-              {/* Latest generation preview */}
-              {generations.filter(g => g.status === "completed").length > 0 && (
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-sm">Última app generada</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    {(() => {
-                      const lastApp = generations.filter(g => g.status === "completed")[0];
-                      if (!lastApp) return null;
-                      return (
-                        <div className="space-y-3">
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <h3 className="font-medium text-sm">{lastApp.name}</h3>
-                              <p className="text-xs text-muted-foreground">{lastApp.description.slice(0, 100)}</p>
-                            </div>
-                            <Badge className="bg-emerald-500/10 text-emerald-400 border-emerald-500/20 text-xs">Completada</Badge>
-                          </div>
-                          <div className="flex gap-2">
-                            <Button variant="outline" size="sm" className="cursor-pointer text-xs" onClick={() => setSelectedApp(lastApp)}>
-                              <Code2 className="w-3 h-3 mr-1" /> Ver código
-                            </Button>
-                            <Button variant="outline" size="sm" className="cursor-pointer text-xs" onClick={() => setActiveTab("myapps")}>
-                              <Smartphone className="w-3 h-3 mr-1" /> Mis apps
-                            </Button>
-                          </div>
-                          {lastApp.sourceCode && (
-                            <div className="bg-black/40 rounded-lg p-3 max-h-40 overflow-auto">
-                              <pre className="text-[10px] text-muted-foreground whitespace-pre-wrap break-all">{lastApp.sourceCode.slice(0, 1000)}...</pre>
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })()}
-                  </CardContent>
-                </Card>
-              )}
             </div>
           )}
 
-          {/* MY APPS TAB */}
+          {/* MY APPS TAB — DATOS REALES DEL BACKEND */}
           {activeTab === "myapps" && (
             <div className="space-y-4">
-              {generations.length === 0 ? (
+              <div className="flex items-center justify-between">
+                <p className="text-xs text-muted-foreground">
+                  {apps.length} app{apps.length !== 1 ? "s" : ""} generada{apps.length !== 1 ? "s" : ""}
+                </p>
+                <Button variant="ghost" size="sm" onClick={loadApps} className="cursor-pointer text-xs" disabled={loadingApps}>
+                  <RefreshCw className={`w-3 h-3 mr-1 ${loadingApps ? "animate-spin" : ""}`} />
+                  Recargar
+                </Button>
+              </div>
+
+              {loadingApps ? (
+                <Card>
+                  <CardContent className="py-12 text-center">
+                    <Loader2 className="w-8 h-8 animate-spin text-muted-foreground/30 mx-auto mb-3" />
+                  </CardContent>
+                </Card>
+              ) : apps.length === 0 ? (
                 <Card>
                   <CardContent className="py-12 text-center">
                     <Smartphone className="w-12 h-12 text-muted-foreground/30 mx-auto mb-3" />
@@ -345,38 +333,51 @@ Devuelve SOLO el código HTML completo (todo en un solo archivo).`
                   </CardContent>
                 </Card>
               ) : (
-                generations.map((app) => (
+                apps.map((app) => (
                   <Card key={app.id}>
                     <CardContent className="p-4">
                       <div className="flex items-start justify-between">
                         <div className="flex-1">
-                          <h3 className="font-medium text-sm">{app.name}</h3>
+                          <div className="flex items-center gap-2">
+                            <h3 className="font-medium text-sm">{app.name}</h3>
+                            <Badge className={`text-[10px] ${
+                              app.status === "published" ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" :
+                              app.status === "draft" ? "bg-amber-500/10 text-amber-400 border-amber-500/20" :
+                              "bg-muted text-muted-foreground"
+                            }`}>
+                              {app.status === "published" ? "Publicada" : app.status === "draft" ? "Borrador" : app.status}
+                            </Badge>
+                          </div>
                           <p className="text-xs text-muted-foreground mt-1">{app.description.slice(0, 150)}</p>
-                          <p className="text-[10px] text-muted-foreground mt-2">
-                            {new Date(app.createdAt).toLocaleString()}
-                          </p>
-                        </div>
-                        <div className="flex items-center gap-2 ml-3">
-                          {app.status === "generating" && <Loader2 className="w-4 h-4 animate-spin text-primary" />}
-                          {app.status === "completed" && <Badge className="bg-emerald-500/10 text-emerald-400 border-emerald-500/20 text-[10px]">✓ Lista</Badge>}
-                          {app.status === "error" && <Badge className="bg-red-500/10 text-red-400 border-red-500/20 text-[10px]">✗ Error</Badge>}
-                          {app.status === "pending" && <Badge className="text-[10px]">Pendiente</Badge>}
+                          <div className="flex items-center gap-4 mt-2 text-[10px] text-muted-foreground">
+                            <span>👁️ {app.views} vistas</span>
+                            <span>📥 {app.downloads} descargas</span>
+                            <span>💰 {app.revenue.toFixed(2)}€ ingresos</span>
+                            <span>{new Date(app.created_at).toLocaleDateString()}</span>
+                          </div>
                         </div>
                       </div>
-                      {app.status === "completed" && app.sourceCode && (
-                        <div className="mt-3 flex gap-2">
-                          <Button variant="outline" size="sm" className="cursor-pointer text-xs" onClick={() => setSelectedApp(app)}>
-                            <Code2 className="w-3 h-3 mr-1" /> Código
-                          </Button>
-                          <Button variant="outline" size="sm" className="cursor-pointer text-xs" onClick={() => {
-                            const blob = new Blob([app.sourceCode!], { type: "text/html" });
-                            const url = URL.createObjectURL(blob);
-                            window.open(url, "_blank");
-                          }}>
-                            <Globe className="w-3 h-3 mr-1" /> Vista previa
-                          </Button>
-                        </div>
-                      )}
+                      <div className="mt-3 flex gap-2">
+                        <Button variant="outline" size="sm" className="cursor-pointer text-xs" onClick={async () => {
+                          try {
+                            const full = await api.getApp(app.id);
+                            if (full?.source_code) {
+                              const blob = new Blob([full.source_code], { type: "text/html" });
+                              window.open(URL.createObjectURL(blob), "_blank");
+                            }
+                          } catch {}
+                        }}>
+                          <Globe className="w-3 h-3 mr-1" /> Vista previa
+                        </Button>
+                        <Button variant="outline" size="sm" className="cursor-pointer text-xs" onClick={async () => {
+                          try {
+                            const full = await api.getApp(app.id);
+                            if (full?.source_code) setSelectedCode(full.source_code);
+                          } catch {}
+                        }}>
+                          <Code2 className="w-3 h-3 mr-1" /> Código
+                        </Button>
+                      </div>
                     </CardContent>
                   </Card>
                 ))
@@ -384,7 +385,7 @@ Devuelve SOLO el código HTML completo (todo en un solo archivo).`
             </div>
           )}
 
-          {/* CREDITS TAB */}
+          {/* CREDITS TAB — DATOS REALES */}
           {activeTab === "credits" && (
             <div className="space-y-6">
               <Card>
@@ -398,14 +399,14 @@ Devuelve SOLO el código HTML completo (todo en un solo archivo).`
                   <div className="flex items-center justify-between mb-4">
                     <div>
                       <h3 className="font-medium">Plan Free</h3>
-                      <p className="text-xs text-muted-foreground">50 créditos/mes</p>
+                      <p className="text-xs text-muted-foreground">{credits} créditos disponibles</p>
                     </div>
                     <Badge className="bg-violet-500/10 text-violet-400 border-violet-500/20">Activo</Badge>
                   </div>
                   <div className="w-full bg-secondary rounded-full h-2 mb-2">
                     <div className="bg-primary h-2 rounded-full" style={{ width: `${Math.min(100, (credits / 50) * 100)}%` }} />
                   </div>
-                  <p className="text-xs text-muted-foreground">{credits} de 50 créditos usados este mes</p>
+                  <p className="text-xs text-muted-foreground">{credits} de 50 créditos este mes</p>
                   <div className="mt-4 p-3 rounded-lg bg-violet-500/5 border border-violet-500/20">
                     <p className="text-xs text-muted-foreground">
                       💡 <strong>Plan Pro (€29/mes):</strong> 2,000 créditos, apps ilimitadas, retiros a PayPal.
@@ -419,28 +420,25 @@ Devuelve SOLO el código HTML completo (todo en un solo archivo).`
       </div>
 
       {/* Code Viewer Modal */}
-      {selectedApp && selectedApp.sourceCode && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4" onClick={() => setSelectedApp(null)}>
+      {selectedCode && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4" onClick={() => setSelectedCode(null)}>
           <div className="bg-card border border-border rounded-xl w-full max-w-3xl max-h-[80vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between p-4 border-b border-border">
-              <h3 className="font-medium text-sm">{selectedApp.name} — Código</h3>
-              <button onClick={() => setSelectedApp(null)} className="text-muted-foreground hover:text-foreground cursor-pointer">
+              <h3 className="font-medium text-sm">Código fuente</h3>
+              <button onClick={() => setSelectedCode(null)} className="text-muted-foreground hover:text-foreground cursor-pointer">
                 <X className="w-4 h-4" />
               </button>
             </div>
             <div className="flex-1 overflow-auto p-4">
-              <pre className="text-xs text-muted-foreground whitespace-pre-wrap break-all font-mono">{selectedApp.sourceCode}</pre>
+              <pre className="text-xs text-muted-foreground whitespace-pre-wrap break-all font-mono">{selectedCode}</pre>
             </div>
             <div className="p-4 border-t border-border flex gap-2">
-              <Button variant="outline" size="sm" className="cursor-pointer" onClick={() => {
-                navigator.clipboard.writeText(selectedApp.sourceCode!);
-              }}>
+              <Button variant="outline" size="sm" className="cursor-pointer" onClick={() => navigator.clipboard.writeText(selectedCode)}>
                 Copiar código
               </Button>
               <Button size="sm" className="cursor-pointer" onClick={() => {
-                const blob = new Blob([selectedApp.sourceCode!], { type: "text/html" });
-                const url = URL.createObjectURL(blob);
-                window.open(url, "_blank");
+                const blob = new Blob([selectedCode], { type: "text/html" });
+                window.open(URL.createObjectURL(blob), "_blank");
               }}>
                 <Globe className="w-3 h-3 mr-1" /> Vista previa
               </Button>

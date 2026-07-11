@@ -1,53 +1,74 @@
-import { createContext, useContext, useState, useEffect, type ReactNode } from "react";
+// ============================================================
+// Auth REAL — conecta con backend FastAPI
+// ============================================================
 
-interface User {
+import { createContext, useContext, useState, useEffect, type ReactNode } from "react";
+import api from "./nexus-api";
+
+export interface User {
+  id: string;
   email: string;
   name: string;
   role: "user" | "admin";
+  credits: number;
+  balance: number;
 }
 
-interface AuthContextType {
+export interface AuthContextType {
   user: User | null;
-  signIn: (email: string, password: string) => boolean;
+  signIn: (email: string, password: string) => Promise<boolean>;
   signOut: () => void;
   isAdmin: boolean;
+  refreshUser: () => Promise<void>;
 }
-
-const ADMIN_EMAIL = "joanlazaro83@gmail.com";
-const ADMIN_PASSWORD = "r3dm/Joan83";
-const ADMIN_NAME = "Joan";
 
 const AuthContext = createContext<AuthContextType>({
   user: null,
-  signIn: () => false,
+  signIn: async () => false,
   signOut: () => {},
   isAdmin: false,
+  refreshUser: async () => {},
 });
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
 
+  // Restaurar sesión al cargar
   useEffect(() => {
     const stored = localStorage.getItem("nexusai_user");
     if (stored) {
       try {
-        setUser(JSON.parse(stored));
+        const parsed = JSON.parse(stored);
+        setUser(parsed);
+        // Refrescar datos desde backend en 2º plano
+        api.getUser(parsed.id).then((u) => {
+          if (u) {
+            setUser(u);
+            localStorage.setItem("nexusai_user", JSON.stringify(u));
+          }
+        }).catch(() => {});
       } catch {}
     }
   }, []);
 
-  const signIn = (email: string, password: string) => {
-    if (email === ADMIN_EMAIL && password === ADMIN_PASSWORD) {
-      const u: User = { email, name: ADMIN_NAME, role: "admin" };
-      setUser(u);
-      localStorage.setItem("nexusai_user", JSON.stringify(u));
+  const signIn = async (email: string, _password: string) => {
+    try {
+      const u = await api.login(email, email.split("@")[0]);
+      const userData: User = {
+        id: u.id,
+        email: u.email,
+        role: u.role,
+        credits: u.credits,
+        balance: u.balance,
+        name: u.name || email.split("@")[0],
+      };
+      setUser(userData);
+      localStorage.setItem("nexusai_user", JSON.stringify(userData));
       return true;
+    } catch (e) {
+      console.error("Error login:", e);
+      return false;
     }
-    // For regular users, any email/password works
-    const u: User = { email, name: email.split("@")[0] || "User", role: "user" };
-    setUser(u);
-    localStorage.setItem("nexusai_user", JSON.stringify(u));
-    return true;
   };
 
   const signOut = () => {
@@ -55,8 +76,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem("nexusai_user");
   };
 
+  const refreshUser = async () => {
+    if (!user) return;
+    try {
+      const u = await api.getUser(user.id);
+      if (u) {
+        const refreshed: User = {
+          id: u.id,
+          email: u.email,
+          role: u.role,
+          credits: u.credits,
+          balance: u.balance,
+          name: u.name || user.name,
+        };
+        setUser(refreshed);
+        localStorage.setItem("nexusai_user", JSON.stringify(refreshed));
+      }
+    } catch {}
+  };
+
   return (
-    <AuthContext.Provider value={{ user, signIn, signOut, isAdmin: user?.role === "admin" }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        signIn,
+        signOut,
+        isAdmin: user?.role === "admin",
+        refreshUser,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );

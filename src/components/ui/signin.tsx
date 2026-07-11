@@ -9,23 +9,19 @@ export function SignInButton() {
   const [error, setError] = useState("");
   const { signIn } = useAuth();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError("");
     if (!email) {
       setError("Introduce tu email");
       return;
     }
-    if (!password) {
-      setError("Introduce tu contraseña");
-      return;
-    }
-    const ok = signIn(email, password);
+    const ok = await signIn(email, password);
     if (!ok) {
-      setError("Credenciales incorrectas");
+      setError("Error al iniciar sesión");
       return;
     }
     setOpen(false);
-    setError("");
   };
 
   if (open) {
