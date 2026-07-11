@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/lib/auth";
 import { useNavigate } from "react-router-dom";
+import api from "@/lib/nexus-api";
 
 // ============================================================
 // TIPOS
@@ -115,7 +116,7 @@ function BuildSteps({ steps }: { steps: BuildStep[] }) {
 // ============================================================
 
 export default function Builder() {
-  const { user, signOut, isAdmin } = useAuth();
+  const { user, signOut, isAdmin, refreshUser } = useAuth();
   const navigate = useNavigate();
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
@@ -138,6 +139,7 @@ export default function Builder() {
   const [buildLog, setBuildLog] = useState<string[]>([]);
   const [finalized, setFinalized] = useState(false);
   const [appName, setAppName] = useState("");
+  const [appId, setAppId] = useState<string | null>(null);
 
   const addLog = useCallback((msg: string) => {
     setBuildLog(prev => [...prev, `[${new Date().toLocaleTimeString()}] ${msg}`]);
@@ -464,6 +466,27 @@ Responde con JSON del manifest y código del SW separados por "---".`,
 
       setFinalized(true);
 
+      // ===== GUARDAR EN BACKEND =====
+      if (user) {
+        addLog("💾 Guardando app en base de datos...");
+        try {
+          const result = await api.createApp({
+            user_id: user.id,
+            name: analysisData.name || appName,
+            description: prompt.trim().slice(0, 500),
+            category: analysisData.category || "general",
+            prompt: prompt.trim(),
+            source_code: preview.html,
+            monetization: { admob: true, amazon: true, freellm: true, pwa: true },
+          });
+          setAppId(result.id);
+          addLog(`✅ App guardada (ID: ${result.id.slice(0, 8)}...)`);
+          await refreshUser();
+        } catch (e) {
+          addLog("⚠️ No se pudo guardar en backend — el código está en preview igualmente");
+        }
+      }
+
     } catch (err) {
       addLog(`❌ Error: ${err instanceof Error ? err.message : "desconocido"}`);
     } finally {
@@ -567,9 +590,18 @@ NO pierdas nada del código anterior. Solo aplica el cambio solicitado.`
   // PUBLICAR APP
   // ============================================================
 
-  const handlePublish = () => {
-    addLog("📦 App lista para publicar — descarga el APK desde el Dashboard");
-    navigate("/dashboard");
+  const handlePublish = async () => {
+    if (!appId) {
+      addLog("⚠️ No hay app para publicar — constrúyela primero");
+      return;
+    }
+    addLog("📡 Publicando app...");
+    try {
+      await api.publishApp(appId);
+      addLog("✅ App publicada con éxito — visible en el Dashboard");
+    } catch (e) {
+      addLog("⚠️ Error al publicar — intenta desde el Dashboard");
+    }
   };
 
   // ============================================================
