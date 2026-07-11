@@ -44,6 +44,7 @@ def create_app(req: CreateAppRequest, db: Session = Depends(get_db)):
         source_code=req.source_code,
         status="draft",
         monetization=req.monetization,
+        updated_at=datetime.now(timezone.utc),
     )
     db.add(app)
 
@@ -117,6 +118,29 @@ def list_all_apps(db: Session = Depends(get_db)):
         }
         for a in apps
     ]
+
+
+class UpdateAppRequest(BaseModel):
+    app_id: str
+    source_code: str | None = None
+    name: str | None = None
+    status: str | None = None
+
+
+@router.put("/update")
+def update_app(req: UpdateAppRequest, db: Session = Depends(get_db)):
+    app = db.query(App).filter(App.id == req.app_id).first()
+    if not app:
+        raise HTTPException(404, "App no encontrada")
+    if req.source_code is not None:
+        app.source_code = req.source_code
+    if req.name is not None:
+        app.name = req.name
+    if req.status is not None:
+        app.status = req.status
+    app.updated_at = datetime.now(timezone.utc)
+    db.commit()
+    return {"status": "updated", "id": app.id}
 
 
 @router.get("/{app_id}")
