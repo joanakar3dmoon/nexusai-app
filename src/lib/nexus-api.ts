@@ -61,6 +61,17 @@ export const api = {
       body: JSON.stringify({ app_id }),
     }),
 
+  updateApp: (data: {
+    app_id: string;
+    source_code?: string;
+    name?: string;
+    status?: string;
+  }) =>
+    apiFetch("/api/apps/update", {
+      method: "PUT",
+      body: JSON.stringify(data),
+    }),
+
   getUserApps: (userId: string) => apiFetch(`/api/apps/user/${userId}`),
 
   getAllApps: () => apiFetch("/api/apps/all"),
