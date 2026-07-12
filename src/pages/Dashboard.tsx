@@ -40,7 +40,7 @@ function saveApps(apps: AppRecord[]) {
 
 // ---- Proveedores LLM ----
 const LLM_PROVIDERS = [
-  { id: "freellm",   label: "GPT-4o Mini",    tag: "Gratis",   color: "text-cyan-400 border-cyan-500/40 bg-cyan-500/10",    url: "https://api.freellm.net/v1/chat/completions",            model: "gpt-4o-mini-free",                    keyEnv: "" },
+  { id: "freellm",   label: "GPT-4o Mini",    tag: "Ext",      color: "text-cyan-400 border-cyan-500/40 bg-cyan-500/10",    url: "https://api.freellm.net/v1/chat/completions",            model: "gpt-4o-mini-free",                    keyEnv: "" },
   { id: "groq",      label: "Llama 3.3 70B",  tag: "Groq",     color: "text-violet-400 border-violet-500/40 bg-violet-500/10", url: "https://api.groq.com/openai/v1/chat/completions",        model: "llama-3.3-70b-versatile",             keyEnv: "VITE_GROQ_API_KEY" },
   { id: "deepseek",  label: "DeepSeek R1",    tag: "Groq",     color: "text-emerald-400 border-emerald-500/40 bg-emerald-500/10", url: "https://api.groq.com/openai/v1/chat/completions",     model: "deepseek-r1-distill-llama-70b",       keyEnv: "VITE_GROQ_API_KEY" },
   { id: "qwen",      label: "Qwen 2.5 72B",   tag: "Groq",     color: "text-orange-400 border-orange-500/40 bg-orange-500/10", url: "https://api.groq.com/openai/v1/chat/completions",       model: "qwen-qwq-32b",                        keyEnv: "VITE_GROQ_API_KEY" },
@@ -152,7 +152,7 @@ export default function Dashboard() {
   const [playMessages, setPlayMessages] = useState<PlayMessage[]>([]);
   const [playInput, setPlayInput] = useState("");
   const [playLoading, setPlayLoading] = useState(false);
-  const [playProvider, setPlayProvider] = useState("freellm");
+  const [playProvider, setPlayProvider] = useState("groq");
   const [playTemp, setPlayTemp] = useState(0.7);
   const [playMaxTokens, setPlayMaxTokens] = useState(2048);
   const [playSystemPrompt, setPlaySystemPrompt] = useState(SYSTEM_PRESETS[0].value);
