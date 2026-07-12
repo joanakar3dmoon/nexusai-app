@@ -41,16 +41,26 @@ jobs:
       - name: Build Vite
         run: npm run build
 
-      - name: Init & Sync Capacitor
+      - name: Init Capacitor Android
         run: |
           npx cap add android || true
-          npx cap sync android
+
+      - name: Fix Capacitor Android SDK versions
+        run: |
+          sed -i 's/compileSdk = .*/compileSdk = 34/' android/app/build.gradle || true
+          sed -i 's/targetSdk = .*/targetSdk = 34/' android/app/build.gradle || true
+          sed -i 's/compileSdkVersion .*/compileSdkVersion 34/' android/app/build.gradle || true
+          sed -i 's/targetSdkVersion .*/targetSdkVersion 34/' android/app/build.gradle || true
+          printf '\nandroid.compileOptions.sourceCompatibility = JavaVersion.VERSION_17\nandroid.compileOptions.targetCompatibility = JavaVersion.VERSION_17\n' >> android/app/build.gradle
+
+      - name: Sync Capacitor
+        run: npx cap sync android
 
       - name: Build APK (debug)
         working-directory: android
         run: |
           chmod +x gradlew
-          ./gradlew assembleDebug --no-daemon
+          ./gradlew assembleDebug --no-daemon --stacktrace 2>&1 | tail -80
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
@@ -66,7 +76,7 @@ jobs:
           name: "NexusAI APK (latest)"
           body: |
             APK de NexusAI con AdMob + Amazon Afiliados integrados.
-            Instala en cualquier Android (activa "fuentes desconocidas").
+            Instala en cualquier Android (activa fuentes desconocidas).
           files: android/app/build/outputs/apk/debug/app-debug.apk
           make_latest: true
         env:
