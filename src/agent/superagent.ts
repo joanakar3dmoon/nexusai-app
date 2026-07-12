@@ -25,9 +25,9 @@ import { injectPWA } from "./injectors/pwa";
 const ROOT_CONFIG = {
   admob: {
     appId: "ca-app-pub-3940256099942544~3347511713", // App ID real (test)
-    bannerId: "ca-app-pub-3940256099942544/6300978111",
-    interstitialId: "ca-app-pub-3940256099942544/1033173712",
-    rewardedId: "ca-app-pub-3940256099942544/5224354917",
+    bannerId: "ca-app-pub-4903263409458961/BANNER_UNIT_ID",
+    interstitialId: "ca-app-pub-4903263409458961/INTERSTITIAL_UNIT_ID",
+    rewardedId: "ca-app-pub-4903263409458961/REWARDED_UNIT_ID",
   },
   amazon: {
     trackingId: "r3dm01-21",
