@@ -368,7 +368,7 @@ export async function runSuperAgent(
   await sleep(400);
   const freellmFiles = injectFreellm(amazonFiles, {
     apiKey: ROOT_CONFIG.freellm.apiKey,
-    baseUrl: ROOT_CONFIG.freellm.baseUrl,
+
     enabled: monetization.freellm.enabled,
   });
   setStepDetail(5, monetization.freellm.enabled
