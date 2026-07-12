@@ -3,7 +3,7 @@ import {
   BrainCircuit, Bot, Code2, Settings, CreditCard, LogOut, Menu, X,
   Send, Loader2, DollarSign, Download, Globe, Smartphone, ExternalLink,
   Eye, Trash2, RefreshCw, TrendingUp, ShoppingCart,
-  Zap, Copy, Check, BadgeDollarSign, FlaskConical, ChevronDown, RotateCcw
+  Zap, Copy, Check, BadgeDollarSign, FlaskConical, ChevronDown, RotateCcw, Cpu
 } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
@@ -40,10 +40,11 @@ function saveApps(apps: AppRecord[]) {
 
 // ---- Proveedores LLM ----
 const LLM_PROVIDERS = [
-  { id: "groq", label: "Groq (Llama 3.3 70B)", url: "https://api.groq.com/openai/v1/chat/completions", model: "llama-3.3-70b-versatile", keyEnv: "VITE_GROQ_API_KEY" },
-  { id: "together", label: "Together AI (Llama 3 Free)", url: "https://api.together.xyz/v1/chat/completions", model: "meta-llama/Llama-3.3-70B-Instruct-Turbo-Free", keyEnv: "VITE_TOGETHER_API_KEY" },
-  { id: "freellm", label: "FreeLLM (GPT-4o Mini)", url: "https://api.freellm.net/v1/chat/completions", model: "gpt-4o-mini-free", keyEnv: "" },
-  { id: "openrouter", label: "OpenRouter (Mistral Free)", url: "https://openrouter.ai/api/v1/chat/completions", model: "mistralai/mistral-7b-instruct:free", keyEnv: "VITE_OPENROUTER_API_KEY" },
+  { id: "freellm",   label: "GPT-4o Mini",    tag: "Gratis",   color: "text-cyan-400 border-cyan-500/40 bg-cyan-500/10",    url: "https://api.freellm.net/v1/chat/completions",            model: "gpt-4o-mini-free",                    keyEnv: "" },
+  { id: "groq",      label: "Llama 3.3 70B",  tag: "Groq",     color: "text-violet-400 border-violet-500/40 bg-violet-500/10", url: "https://api.groq.com/openai/v1/chat/completions",        model: "llama-3.3-70b-versatile",             keyEnv: "VITE_GROQ_API_KEY" },
+  { id: "deepseek",  label: "DeepSeek R1",    tag: "Groq",     color: "text-emerald-400 border-emerald-500/40 bg-emerald-500/10", url: "https://api.groq.com/openai/v1/chat/completions",     model: "deepseek-r1-distill-llama-70b",       keyEnv: "VITE_GROQ_API_KEY" },
+  { id: "qwen",      label: "Qwen 2.5 72B",   tag: "Groq",     color: "text-orange-400 border-orange-500/40 bg-orange-500/10", url: "https://api.groq.com/openai/v1/chat/completions",       model: "qwen-qwq-32b",                        keyEnv: "VITE_GROQ_API_KEY" },
+  { id: "mixtral",   label: "Mixtral 8x7B",   tag: "Groq",     color: "text-pink-400 border-pink-500/40 bg-pink-500/10",    url: "https://api.groq.com/openai/v1/chat/completions",        model: "mixtral-8x7b-32768",                  keyEnv: "VITE_GROQ_API_KEY" },
 ];
 
 async function callLLM(
@@ -63,7 +64,10 @@ async function callLLM(
   });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   const data = await res.json();
-  return data.choices?.[0]?.message?.content ?? "";
+  let reply = data.choices?.[0]?.message?.content ?? "";
+  // DeepSeek R1 incluye bloques <think>...</think> — los quitamos
+  reply = reply.replace(/<think>[\s\S]*?<\/think>/g, "").trim();
+  return reply;
 }
 
 async function generateWithFreeLLM(prompt: string, apiKeys: Record<string, string>): Promise<string> {
@@ -103,11 +107,11 @@ REGLAS:
 // ---- Amazon productos ----
 const AMAZON_PRODUCTS = [
   { name: "Auriculares Bluetooth", url: "https://www.amazon.es/s?k=auriculares+bluetooth&tag=r3dm01-21", img: "🎧" },
-  { name: "Altavoz portátil", url: "https://www.amazon.es/s?k=altavoz+portatil&tag=r3dm01-21", img: "🔊" },
-  { name: "Controlador DJ", url: "https://www.amazon.es/s?k=controlador+dj&tag=r3dm01-21", img: "🎛️" },
-  { name: "Teclado MIDI", url: "https://www.amazon.es/s?k=teclado+midi&tag=r3dm01-21", img: "🎹" },
+  { name: "Teclado mecánico", url: "https://www.amazon.es/s?k=teclado+mecanico&tag=r3dm01-21", img: "⌨️" },
   { name: "Micrófono USB", url: "https://www.amazon.es/s?k=microfono+usb&tag=r3dm01-21", img: "🎙️" },
-  { name: "Interfaz de audio", url: "https://www.amazon.es/s?k=interfaz+audio&tag=r3dm01-21", img: "🎚️" },
+  { name: "Monitor 4K", url: "https://www.amazon.es/s?k=monitor+4k&tag=r3dm01-21", img: "🖥️" },
+  { name: "SSD portátil", url: "https://www.amazon.es/s?k=ssd+portatil&tag=r3dm01-21", img: "💾" },
+  { name: "Webcam HD", url: "https://www.amazon.es/s?k=webcam+hd&tag=r3dm01-21", img: "📷" },
 ];
 
 // ---- Playground: system prompts predefinidos ----
@@ -141,7 +145,9 @@ export default function Dashboard() {
   const [playMaxTokens, setPlayMaxTokens] = useState(2048);
   const [playSystemPrompt, setPlaySystemPrompt] = useState(SYSTEM_PRESETS[0].value);
   const [playSystemVisible, setPlaySystemVisible] = useState(false);
-  const [playApiKeys, setPlayApiKeys] = useState<Record<string, string>>({});
+  const [playApiKeys, setPlayApiKeys] = useState<Record<string, string>>({
+    VITE_GROQ_API_KEY: "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",
+  });
   const playBottomRef = useRef<HTMLDivElement>(null);
 
   const [activeTab, setActiveTab] = useState<TabId>("generator");
@@ -404,6 +410,9 @@ export default function Dashboard() {
                         <Button variant="outline" size="sm" className="cursor-pointer text-xs" onClick={() => downloadApp(app)}>
                           <Download className="w-3 h-3 mr-1" /> Descargar .html
                         </Button>
+                        <Button variant="outline" size="sm" className="cursor-pointer text-xs" onClick={() => navigate("/builder")}>
+                          <Zap className="w-3 h-3 mr-1" /> Mejorar con IA
+                        </Button>
                       </div>
                     )}
                   </CardContent>
@@ -426,18 +435,21 @@ export default function Dashboard() {
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    {/* Proveedor */}
-                    <div>
-                      <label className="text-xs text-muted-foreground mb-1 block">Proveedor / Modelo</label>
-                      <select
-                        value={playProvider}
-                        onChange={e => setPlayProvider(e.target.value)}
-                        className="w-full bg-background border border-input rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring cursor-pointer"
-                      >
+                  <div>
+                      <label className="text-xs text-muted-foreground mb-2 block">Modelo IA</label>
+                      <div className="flex flex-wrap gap-2">
                         {LLM_PROVIDERS.map(p => (
-                          <option key={p.id} value={p.id}>{p.label}</option>
+                          <button
+                            key={p.id}
+                            onClick={() => setPlayProvider(p.id)}
+                            className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all cursor-pointer ${p.color} ${playProvider === p.id ? "ring-2 ring-white/30 opacity-100" : "opacity-40 hover:opacity-70"}`}
+                          >
+                            <Cpu className="w-3 h-3 inline mr-1" />
+                            {p.label}
+                            <span className="ml-1.5 text-[10px] opacity-60">{p.tag}</span>
+                          </button>
                         ))}
-                      </select>
+                      </div>
                     </div>
 
                     {/* Temperatura */}
