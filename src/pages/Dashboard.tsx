@@ -71,13 +71,25 @@ async function callLLM(
 }
 
 async function generateWithFreeLLM(prompt: string, apiKeys: Record<string, string>): Promise<string> {
+  // IDs reales de AdMob (Nexusia - Joan)
+  const ADMOB_APP_ID    = "ca-app-pub-4903263409458961~5751005760";
+  const ADMOB_BANNER    = "ca-app-pub-4903263409458961/8825147276";
+  const ADMOB_INTER     = "ca-app-pub-4903263409458961/4622591073";
+  const ADMOB_REWARDED  = "ca-app-pub-4903263409458961/3980014703";
+  const AMAZON_TAG      = "r3dm01-21";
+
   const systemPrompt = `Eres un generador de apps web PWA. Dado un prompt, genera una app completa en un solo archivo HTML con CSS y JS embebidos.
 REGLAS:
 - Diseño dark moderno y mobile-first
-- Incluye un bloque de anuncios AdMob simulado (div con id="admob-banner" en la parte inferior)
-- Incluye al menos 3 enlaces de afiliado Amazon España con tracking ID r3dm01-21
-- Formato: https://www.amazon.es/s?k=PRODUCTO&tag=r3dm01-21
-- Devuelve SOLO el código HTML completo, nada más.`;
+- Integra AdMob REAL con los siguientes IDs exactos:
+  * App ID: ${ADMOB_APP_ID}
+  * Banner: ${ADMOB_BANNER} — div fijo en la parte inferior con id="admob-banner"
+  * Intersticial: ${ADMOB_INTER} — actívalo al cargar la app
+  * Rewarded: ${ADMOB_REWARDED} — actívalo en el botón principal
+  * SDK: <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${ADMOB_APP_ID}" crossorigin="anonymous"></script>
+- Incluye al menos 3 enlaces de afiliado Amazon España reales con productos relevantes al tema:
+  * Formato: https://www.amazon.es/s?k=PRODUCTO&tag=${AMAZON_TAG}
+- Devuelve SOLO el código HTML completo, sin explicaciones ni markdown.`;
 
   for (const p of LLM_PROVIDERS) {
     const key = p.keyEnv ? (apiKeys[p.keyEnv] ?? "") : "free";
