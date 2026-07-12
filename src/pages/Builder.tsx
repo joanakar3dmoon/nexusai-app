@@ -385,7 +385,11 @@ RESPONDE SOLO con el código HTML completo. Sin explicaciones. Sin markdown. Sin
         const gd = await gr.json();
         finalHtml = gd.choices?.[0]?.message?.content || "";
         // Limpiar posibles backticks de markdown
-        finalHtml = finalHtml.replace(/^```html?\n?/i, "").replace(/\n?```$/i, "").trim();
+        // Extraer solo el bloque HTML limpio (sin markdown)
+        const htmlMatch = finalHtml.match(/<!DOCTYPE[\s\S]*?<\/html>/i) ||
+                          finalHtml.match(/<html[\s\S]*?<\/html>/i);
+        if (htmlMatch) finalHtml = htmlMatch[0];
+        else finalHtml = finalHtml.replace(/^```html?\n?/i, "").replace(/\n?```$/i, "").trim();
         if (!finalHtml.includes("<html")) throw new Error("HTML inválido");
       } catch (e) {
         addLog(`⚠️ Error Groq: ${e instanceof Error ? e.message : e} — usando fallback`);
