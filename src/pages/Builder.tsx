@@ -8,7 +8,8 @@ import { useNavigate } from "react-router-dom";
 // ─── constantes ─────────────────────────────────────────────
 const GROQ_KEY  = "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";
 const GROQ_URL  = "https://api.groq.com/openai/v1/chat/completions";
-const GROQ_MDL  = "llama-3.3-70b-versatile";
+const GROQ_MDL  = "moonshotai/kimi-k2-instruct";
+const GROQ_MDL2 = "llama-3.3-70b-versatile";  // fallback
 const ADMOB_PUB = "ca-pub-4903263409458961";
 const ADMOB_BAN = "8825147276";   // banner
 const ADMOB_INT = "4622591073";   // intersticial
@@ -28,19 +29,21 @@ const STEPS: Step[] = [
 ];
 
 // ─── llamada a Groq ─────────────────────────────────────────
-async function groq(system: string, user: string, maxTokens = 8000): Promise<string> {
+async function groq(system: string, user: string, maxTokens = 8000, model = GROQ_MDL): Promise<string> {
   const r = await fetch(GROQ_URL, {
     method: "POST",
     headers: { "Content-Type": "application/json", "Authorization": `Bearer ${GROQ_KEY}` },
     body: JSON.stringify({
-      model: GROQ_MDL,
+      model,
       messages: [{ role: "system", content: system }, { role: "user", content: user }],
-      temperature: 0.85,
+      temperature: 0.7,
       max_tokens: maxTokens,
     }),
     signal: AbortSignal.timeout(120000),
   });
   if (!r.ok) {
+    // Si kimi falla, intenta con llama
+    if (model === GROQ_MDL) return groq(system, user, maxTokens, GROQ_MDL2);
     const err = await r.text().catch(() => r.statusText);
     throw new Error(`Groq ${r.status}: ${err.slice(0, 120)}`);
   }
@@ -49,20 +52,27 @@ async function groq(system: string, user: string, maxTokens = 8000): Promise<str
 }
 
 // ─── extrae HTML limpio de la respuesta ─────────────────────
-function extractHTML(raw: string): string {
-  // Greedy: coge desde el primer DOCTYPE/html hasta el último </html>
+function extractHTML(raw: string, appName = "NexusAI App", color = "#7c3aed"): string {
+  // 1) Intentar extraer desde <!DOCTYPE hasta </html>
   const m = raw.match(/<!DOCTYPE\s+html[\s\S]*/i) ?? raw.match(/<html[\s\S]*/i);
   if (m) {
-    // Corta justo después del </html> final
     const block = m[0];
     const endIdx = block.toLowerCase().lastIndexOf("</html>");
-    return endIdx >= 0 ? block.slice(0, endIdx + 7) : block;
+    const html = endIdx >= 0 ? block.slice(0, endIdx + 7) : block;
+    if (html.length > 200) return html;
   }
-  // Quita fences de markdown
-  return raw
-    .replace(/^[\s\S]*?```html?\n/i, "")
-    .replace(/\n?```[\s\S]*$/i, "")
+  // 2) Quitar fences de markdown y texto extra antes/después
+  let cleaned = raw
+    .replace(/^[\s\S]*?```html?\s*\n/i, "")   // texto antes del bloque
+    .replace(/\n?```[\s\S]*$/i, "")            // texto después del bloque
     .trim();
+  // Si ya tiene <!DOCTYPE tras limpiar, devolverlo
+  if (cleaned.toLowerCase().startsWith("<!doctype")) return cleaned;
+  // 3) Si solo tiene el body (sin html/head), wrappearlo
+  if (cleaned.includes("<body") || cleaned.includes("<div") || cleaned.includes("<main")) {
+    return `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${appName}</title><link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet"><style>*{margin:0;padding:0;box-sizing:border-box;font-family:'Poppins',system-ui,sans-serif}:root{--bg:#0a0a0f;--card:#111128;--accent:${color}}body{background:var(--bg);color:#e0e0e0;min-height:100vh;padding-bottom:80px}</style></head><body>${cleaned}</body></html>`;
+  }
+  return cleaned;
 }
 
 // ─── fallback HTML mínimo ────────────────────────────────────
@@ -233,40 +243,36 @@ export default function Builder() {
       const sysPrompt = `Eres un desarrollador senior experto en crear apps web reales y funcionales con HTML/CSS/JS puro.
 Tu misión: generar una app web COMPLETA, REAL y USABLE que funcione al 100% en un navegador.
 
-REGLAS ABSOLUTAS (NO NEGOCIABLES):
-1. Responde ÚNICAMENTE con el código HTML. CERO texto extra, CERO markdown, CERO explicaciones.
-2. Empieza EXACTAMENTE con: <!DOCTYPE html>
-3. Termina EXACTAMENTE con: </html>
-4. TODO inline: <style> para CSS, <script> para JS. Sin imports externos excepto Google Fonts.
+⚠️ REGLAS CRÍTICAS — NO NEGOCIABLES:
+1. Tu respuesta debe comenzar LITERALMENTE con: <!DOCTYPE html>
+2. Tu respuesta debe terminar LITERALMENTE con: </html>
+3. CERO texto antes del DOCTYPE. CERO texto después del </html>. CERO markdown. CERO explicaciones.
+4. TODO el CSS va dentro de <style> en el <head>. TODO el JS va dentro de <script> antes de </body>.
+5. Sin archivos externos excepto Google Fonts.
 
-DISEÑO:
+DISEÑO OBLIGATORIO:
 - Mobile-first, dark theme profesional
-- Fondo principal: #0a0a0f, tarjetas: #111128, color acento: ${meta.color}
-- Tipografía: usar Google Fonts (Poppins o Inter) desde fonts.googleapis.com
-- Bordes redondeados (12-16px), sombras suaves, transiciones CSS (0.2s ease)
-- Bottom navigation fija con 4-5 secciones y emojis grandes
-- Header con nombre de la app, avatar/logo emoji y menú
+- :root { --bg: #0a0a0f; --card: #111128; --accent: ${meta.color}; --text: #e0e0e0; }
+- Tipografía Poppins desde fonts.googleapis.com
+- Bordes 12-16px, sombras suaves rgba(0,0,0,0.4), transiciones 0.2s ease
+- Bottom nav fija: 4 botones con emoji + texto, activo resaltado con --accent
+- Header con título de la app y subtítulo
 
-FUNCIONALIDAD REAL (OBLIGATORIA):
-- La app debe tener datos de ejemplo REALES precargados (mínimo 8-10 items)
-- Navegación entre secciones SIN recarga (mostrar/ocultar divs con JS)
-- Al menos 2 formularios o inputs funcionales que hagan algo visible
-- Botones que ejecutan acciones reales (añadir, borrar, buscar, filtrar)
-- localStorage para persistir datos entre recargas
-- Animaciones CSS en hover y al añadir/borrar elementos
-- Contadores, estadísticas o métricas que se actualicen en tiempo real
+CONTENIDO REAL OBLIGATORIO:
+- Mínimo 8 items de datos de ejemplo completamente inventados pero realistas
+- Navegación JS entre secciones (show/hide divs, sin reload)
+- Formulario funcional con validación + añade items a la lista
+- Botones de borrar, buscar/filtrar que funcionen de verdad
+- localStorage para persistir entre recargas
+- Métricas/contadores que se actualicen al interactuar
 
-SECCIONES (mínimo 4):
-- Inicio/Dashboard con tarjetas de resumen y métricas
-- Lista/Explorar con los datos principales y buscador/filtro funcional
-- Añadir/Crear formulario completo con validación
-- Perfil/Ajustes con configuración guardada en localStorage
+4 SECCIONES MÍNIMAS:
+1. 🏠 Inicio — dashboard con 3-4 tarjetas de métricas + resumen visual
+2. 📋 Lista — todos los items con buscador funcional + filtros
+3. ➕ Añadir — formulario completo con validación visual
+4. ⚙️ Perfil — datos guardados en localStorage + opciones
 
-CALIDAD DE CÓDIGO:
-- Variables CSS (--color-primary, etc.) para theming
-- Funciones JS bien nombradas y organizadas
-- Event listeners correctos, sin inline onclick cuando sea posible
-- Manejo de estados (vacío, cargando, con datos, error)`;
+CÓDIGO LIMPIO: event listeners en JS (no onclick inline), funciones nombradas, manejo de estado vacío.`;
 
       const userMsg = `Crea una app web REAL y FUNCIONAL.
 Nombre: "${meta.name}"
@@ -280,7 +286,7 @@ Recuerda: datos de ejemplo REALES, formularios que funcionen, navegación entre 
       let finalHtml = "";
       try {
         const raw = await groq(sysPrompt, userMsg, 32000);
-        finalHtml = extractHTML(raw);
+        finalHtml = extractHTML(raw, meta.name, meta.color);
         if (!finalHtml.includes("<html")) throw new Error("No HTML en respuesta");
         addLog("✅ HTML generado correctamente");
       } catch (e) {
