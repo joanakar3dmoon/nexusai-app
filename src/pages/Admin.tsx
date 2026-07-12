@@ -1,10 +1,10 @@
-import { useState, useEffect, useCallback } from "react";
-import { motion } from "motion/react";
+import { useState, useEffect, useRef } from "react";
+import { motion, AnimatePresence } from "motion/react";
 import {
-  BarChart3, Users, DollarSign, CreditCard, Shield,
-  LogOut, Menu, X, Check, Trash2, Ban,
-  ShoppingCart, Wallet, TrendingUp, Bot, Activity,
-  RefreshCw, AlertCircle,
+  BarChart3, DollarSign, Shield, LogOut, Menu, X,
+  TrendingUp, Bot, Wallet, Settings, Send, Loader2,
+  RefreshCw, CheckCircle, AlertCircle, ArrowUpRight,
+  PlusCircle, Trash2, Eye, ShoppingCart, Cpu,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -12,435 +12,621 @@ import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/lib/auth";
 import { useNavigate } from "react-router-dom";
 
-// ---- Tipos ----
-interface StoredUser {
-  id: string;
-  email: string;
-  name: string;
-  credits: number;
-  banned: boolean;
-  created_at: string;
+// ─── Tipos ────────────────────────────────────────────────────────────────────
+interface FinancialEntry { source: string; amount: number; date: string; note: string; }
+interface Investment { id: string; name: string; type: string; amount: number; roi: number; date: string; status: "active"|"closed"; }
+interface Withdrawal { id: string; amount: number; status: "pending"|"sent"|"failed"; date: string; }
+interface AIMessage { role: "user"|"assistant"; content: string; }
+type TabId = "finance"|"superagent"|"portfolio"|"withdrawals"|"config";
+
+// ─── localStorage helpers ─────────────────────────────────────────────────────
+function getLS<T>(k: string, fb: T): T {
+  try { return JSON.parse(localStorage.getItem(k) || "null") ?? fb; } catch { return fb; }
 }
-interface StoredApp {
-  id: string;
-  name: string;
-  description: string;
-  status: string;
-  views: number;
-  downloads: number;
-  revenue: number;
-  created_at: string;
-  user_email?: string;
+function setLS(k: string, v: unknown) { localStorage.setItem(k, JSON.stringify(v)); }
+
+// ─── Datos iniciales ──────────────────────────────────────────────────────────
+function seedFinance() {
+  if (getLS("nexusai_finance", null)) return;
+  const entries: FinancialEntry[] = [
+    { source: "AdMob", amount: 0, date: new Date().toISOString(), note: "Pendiente configurar App ID real" },
+    { source: "Amazon Afiliados", amount: 0, date: new Date().toISOString(), note: "Tracking ID: r3dm01-21 activo" },
+    { source: "Suscripciones", amount: 0, date: new Date().toISOString(), note: "Aún no hay suscriptores de pago" },
+  ];
+  setLS("nexusai_finance", entries);
 }
-interface Withdrawal {
-  id: string;
-  user_email: string;
-  amount: number;
-  status: "pending" | "approved" | "rejected";
-  created_at: string;
-  paypal_email?: string;
+function seedPortfolio() {
+  if (getLS("nexusai_portfolio", null)) return;
+  setLS("nexusai_portfolio", []);
+}
+function seedWithdrawals() {
+  if (getLS("nexusai_my_withdrawals", null)) return;
+  setLS("nexusai_my_withdrawals", []);
 }
 
-type TabId = "dashboard" | "users" | "apps" | "withdrawals" | "stats";
+// ─── Config por defecto ───────────────────────────────────────────────────────
+const DEFAULT_CONFIG = {
+  admob_app_id: "ca-app-pub-4903263409458961~5751005760",
+  admob_banner_id: "ca-app-pub-4903263409458961/8825147276",
+  admob_interstitial_id: "ca-app-pub-4903263409458961/4622591073",
+  admob_interstitial_reward_id: "ca-app-pub-4903263409458961/1824624651",
+  admob_appopen_id: "ca-app-pub-4903263409458961/8054991080",
+  admob_rewarded_id: "ca-app-pub-4903263409458961/3980014703",
+  admob_native_id: "ca-app-pub-4903263409458961/2202908920",
+  amazon_tracking_id: "r3dm01-21",
+  freellm_key: "free",
+  groq_key: "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",
+  paypal_email: "joanlazaro83@gmail.com",
+};
 
-// ---- Helpers localStorage ----
-function getLS<T>(key: string, fallback: T): T {
-  try { return JSON.parse(localStorage.getItem(key) || "null") ?? fallback; }
-  catch { return fallback; }
-}
-function setLS(key: string, value: unknown) {
-  localStorage.setItem(key, JSON.stringify(value));
+// ─── SuperAgente: modelos disponibles ────────────────────────────────────────
+const AGENT_MODELS = [
+  { id: "deepseek", label: "DeepSeek R1", color: "text-emerald-400 border-emerald-500/40 bg-emerald-500/10" },
+  { id: "groq",     label: "Llama 3.3 70B", color: "text-violet-400 border-violet-500/40 bg-violet-500/10" },
+  { id: "freellm",  label: "GPT-4o Mini", color: "text-cyan-400 border-cyan-500/40 bg-cyan-500/10" },
+];
+
+async function callAgent(messages: AIMessage[], model: string, groqKey: string): Promise<string> {
+  const isGroq = model !== "freellm";
+  const url = isGroq
+    ? "https://api.groq.com/openai/v1/chat/completions"
+    : "https://api.freellm.net/v1/chat/completions";
+  const mdl = model === "deepseek" ? "deepseek-r1-distill-llama-70b"
+    : model === "groq" ? "llama-3.3-70b-versatile"
+    : "gpt-4o-mini-free";
+  const key = isGroq ? groqKey : "free";
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
+    body: JSON.stringify({ model: mdl, messages, max_tokens: 1024, temperature: 0.3 }),
+  });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const d = await res.json();
+  let reply = d.choices?.[0]?.message?.content ?? "";
+  reply = reply.replace(/<think>[\s\S]*?<\/think>/g, "").trim();
+  return reply;
 }
 
-// ---- Seed de datos demo ----
-function seedDemoData() {
-  if (!localStorage.getItem("nexusai_seeded")) {
-    const users: StoredUser[] = [
-      { id: "u1", email: "demo1@gmail.com", name: "Carlos M.", credits: 85, banned: false, created_at: "2026-07-01T10:00:00Z" },
-      { id: "u2", email: "demo2@gmail.com", name: "Ana P.", credits: 120, banned: false, created_at: "2026-07-05T12:00:00Z" },
-      { id: "u3", email: "demo3@gmail.com", name: "Luis R.", credits: 0, banned: true, created_at: "2026-07-08T09:00:00Z" },
-    ];
-    const apps: StoredApp[] = [
-      { id: "a1", name: "App Calculadora", description: "Calculadora científica", status: "published", views: 243, downloads: 87, revenue: 4.2, created_at: "2026-07-02T11:00:00Z", user_email: "demo1@gmail.com" },
-      { id: "a2", name: "Diario Musical", description: "App para registrar composiciones", status: "published", views: 512, downloads: 134, revenue: 9.7, created_at: "2026-07-06T14:00:00Z", user_email: "demo2@gmail.com" },
-      { id: "a3", name: "Timer Pomodoro", description: "Gestor de tiempo", status: "draft", views: 0, downloads: 0, revenue: 0, created_at: "2026-07-10T16:00:00Z", user_email: "demo1@gmail.com" },
-    ];
-    const withdrawals: Withdrawal[] = [
-      { id: "w1", user_email: "demo1@gmail.com", amount: 12.5, status: "pending", created_at: "2026-07-11T08:00:00Z", paypal_email: "demo1paypal@gmail.com" },
-      { id: "w2", user_email: "demo2@gmail.com", amount: 27.0, status: "pending", created_at: "2026-07-11T09:00:00Z", paypal_email: "demo2paypal@gmail.com" },
-    ];
-    setLS("nexusai_users", users);
-    setLS("nexusai_apps", apps);
-    setLS("nexusai_withdrawals", withdrawals);
-    localStorage.setItem("nexusai_seeded", "1");
-  }
-}
+// ─── Nav tabs ─────────────────────────────────────────────────────────────────
+const TABS: { id: TabId; label: string; icon: React.ElementType; badge?: string }[] = [
+  { id: "finance",     label: "Dashboard Financiero", icon: BarChart3 },
+  { id: "superagent",  label: "SuperAgente Financiero", icon: Bot, badge: "IA" },
+  { id: "portfolio",   label: "Cartera",              icon: TrendingUp },
+  { id: "withdrawals", label: "Retiros",              icon: Wallet },
+  { id: "config",      label: "Config",               icon: Settings },
+];
 
+// ─── Componente principal ─────────────────────────────────────────────────────
 export default function Admin() {
   const { user, signOut, isAdmin } = useAuth();
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState<TabId>("dashboard");
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [users, setUsers] = useState<StoredUser[]>([]);
-  const [apps, setApps] = useState<StoredApp[]>([]);
+  const [tab, setTab] = useState<TabId>("finance");
+  const [sideOpen, setSideOpen] = useState(false);
+
+  // Finance
+  const [finance, setFinance] = useState<FinancialEntry[]>([]);
+  const [newEntry, setNewEntry] = useState({ source: "", amount: "", note: "" });
+
+  // SuperAgente
+  const [agentMessages, setAgentMessages] = useState<AIMessage[]>([]);
+  const [agentInput, setAgentInput] = useState("");
+  const [agentLoading, setAgentLoading] = useState(false);
+  const [agentModel, setAgentModel] = useState("deepseek");
+  const agentBottomRef = useRef<HTMLDivElement>(null);
+
+  // Cartera
+  const [portfolio, setPortfolio] = useState<Investment[]>([]);
+  const [newInv, setNewInv] = useState({ name: "", type: "ETF", amount: "", roi: "" });
+
+  // Retiros
   const [withdrawals, setWithdrawals] = useState<Withdrawal[]>([]);
-  const [toast, setToast] = useState<string | null>(null);
+  const [withdrawAmount, setWithdrawAmount] = useState("");
 
-  // Guard
+  // Config
+  const [config, setConfig] = useState(DEFAULT_CONFIG);
+
+  // ── Init ──
   useEffect(() => {
-    if (!user || !isAdmin) navigate("/dashboard");
-  }, [user, isAdmin, navigate]);
+    if (!isAdmin) { navigate("/dashboard"); return; }
+    seedFinance(); seedPortfolio(); seedWithdrawals();
+    setFinance(getLS("nexusai_finance", []));
+    setPortfolio(getLS("nexusai_portfolio", []));
+    setWithdrawals(getLS("nexusai_my_withdrawals", []));
+    setConfig(getLS("nexusai_config", DEFAULT_CONFIG));
+  }, [isAdmin, navigate]);
 
-  const loadData = useCallback(() => {
-    seedDemoData();
-    setUsers(getLS<StoredUser[]>("nexusai_users", []));
-    setApps(getLS<StoredApp[]>("nexusai_apps", []));
-    setWithdrawals(getLS<Withdrawal[]>("nexusai_withdrawals", []));
-  }, []);
+  useEffect(() => { agentBottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [agentMessages]);
 
-  useEffect(() => { loadData(); }, [loadData]);
+  // ── Totals ──
+  const totalIncome = finance.reduce((s, e) => s + e.amount, 0);
+  const totalWithdrawn = withdrawals.filter(w => w.status === "sent").reduce((s, w) => s + w.amount, 0);
+  const balance = totalIncome - totalWithdrawn;
 
-  const showToast = (msg: string) => {
-    setToast(msg);
-    setTimeout(() => setToast(null), 5000);
+  // ── Finance: añadir entrada ──
+  const addEntry = () => {
+    if (!newEntry.source || !newEntry.amount) return;
+    const entry: FinancialEntry = {
+      source: newEntry.source,
+      amount: parseFloat(newEntry.amount),
+      date: new Date().toISOString(),
+      note: newEntry.note,
+    };
+    const updated = [entry, ...finance];
+    setFinance(updated); setLS("nexusai_finance", updated);
+    setNewEntry({ source: "", amount: "", note: "" });
   };
 
-  // ---- Acciones ----
-  const toggleBan = (uid: string) => {
-    const updated = users.map(u => u.id === uid ? { ...u, banned: !u.banned } : u);
-    setUsers(updated);
-    setLS("nexusai_users", updated);
+  // ── SuperAgente: enviar ──
+  const SYSTEM_AGENT = `Eres un SuperAgente Financiero de élite para el usuario Joan (músico independiente, España).
+Tu misión: analizar mercados (acciones, ETFs, cripto, REITs), proponer inversiones concretas con % de confianza y reasoning claro.
+Balance actual del usuario: ${balance.toFixed(2)}€.
+Ingresos totales acumulados: ${totalIncome.toFixed(2)}€.
+Responde siempre en español. Sé directo, concreto, con datos reales. Propón siempre 3 opciones ordenadas por riesgo/beneficio.`;
+
+  const sendAgent = async () => {
+    if (!agentInput.trim() || agentLoading) return;
+    const userMsg: AIMessage = { role: "user", content: agentInput.trim() };
+    const msgs: AIMessage[] = [
+      { role: "user", content: SYSTEM_AGENT },
+      ...agentMessages,
+      userMsg,
+    ];
+    setAgentMessages(prev => [...prev, userMsg]);
+    setAgentInput("");
+    setAgentLoading(true);
+    try {
+      const reply = await callAgent(msgs, agentModel, config.groq_key);
+      setAgentMessages(prev => [...prev, { role: "assistant", content: reply }]);
+    } catch (err) {
+      setAgentMessages(prev => [...prev, { role: "assistant", content: `❌ Error: ${err instanceof Error ? err.message : "Fallo"}` }]);
+    } finally { setAgentLoading(false); }
   };
 
-  const deleteApp = (aid: string) => {
-    const updated = apps.filter(a => a.id !== aid);
-    setApps(updated);
-    setLS("nexusai_apps", updated);
+  // ── Cartera: añadir inversión ──
+  const addInvestment = () => {
+    if (!newInv.name || !newInv.amount) return;
+    const inv: Investment = {
+      id: Date.now().toString(),
+      name: newInv.name,
+      type: newInv.type,
+      amount: parseFloat(newInv.amount),
+      roi: parseFloat(newInv.roi) || 0,
+      date: new Date().toISOString(),
+      status: "active",
+    };
+    const updated = [inv, ...portfolio];
+    setPortfolio(updated); setLS("nexusai_portfolio", updated);
+    setNewInv({ name: "", type: "ETF", amount: "", roi: "" });
   };
 
-  const handleWithdrawal = (wid: string, action: "approved" | "rejected") => {
-    const updated = withdrawals.map(w => w.id === wid ? { ...w, status: action } : w);
-    setWithdrawals(updated);
-    setLS("nexusai_withdrawals", updated);
-    if (action === "approved") {
-      const w = withdrawals.find(x => x.id === wid);
-      showToast(`✅ €${w?.amount.toFixed(2)} enviado a PayPal: joanlazaro83@gmail.com`);
-    }
+  const deleteInvestment = (id: string) => {
+    const updated = portfolio.filter(i => i.id !== id);
+    setPortfolio(updated); setLS("nexusai_portfolio", updated);
   };
 
-  // ---- KPIs ----
-  const totalRevenue = apps.reduce((s, a) => s + a.revenue, 0);
-  const admobRevenue = totalRevenue * 0.6;
-  const amazonRevenue = totalRevenue * 0.4;
-  const pendingWithdrawals = withdrawals.filter(w => w.status === "pending").length;
-  const bannedUsers = users.filter(u => u.banned).length;
-  const publishedApps = apps.filter(a => a.status === "published").length;
+  // ── Retiros ──
+  const requestWithdrawal = () => {
+    const amt = parseFloat(withdrawAmount);
+    if (!amt || amt <= 0 || amt > balance) return;
+    const w: Withdrawal = { id: Date.now().toString(), amount: amt, status: "pending", date: new Date().toISOString() };
+    const updated = [w, ...withdrawals];
+    setWithdrawals(updated); setLS("nexusai_my_withdrawals", updated);
+    setWithdrawAmount("");
+  };
 
-  // Ingresos ficticios por mes (últimos 6)
-  const monthlyData = [
-    { month: "Feb", amount: 3.2 },
-    { month: "Mar", amount: 7.8 },
-    { month: "Abr", amount: 12.1 },
-    { month: "May", amount: 18.5 },
-    { month: "Jun", amount: 24.3 },
-    { month: "Jul", amount: totalRevenue > 0 ? totalRevenue : 31.6 },
-  ];
-  const maxAmount = Math.max(...monthlyData.map(m => m.amount));
+  // ── Config save ──
+  const saveConfig = () => { setLS("nexusai_config", config); };
 
-  const sidebarItems: { id: TabId; icon: React.ElementType; label: string; badge?: number }[] = [
-    { id: "dashboard", icon: BarChart3, label: "Dashboard" },
-    { id: "users", icon: Users, label: "Usuarios", badge: bannedUsers || undefined },
-    { id: "apps", icon: Bot, label: "Apps", badge: publishedApps || undefined },
-    { id: "withdrawals", icon: Wallet, label: "Retiros", badge: pendingWithdrawals || undefined },
-    { id: "stats", icon: TrendingUp, label: "Estadísticas" },
-  ];
+  // ── Sidebar nav ──
+  const NavItem = ({ t }: { t: typeof TABS[0] }) => (
+    <button
+      onClick={() => { setTab(t.id); setSideOpen(false); }}
+      className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors cursor-pointer ${tab === t.id ? "bg-violet-500/20 text-violet-300" : "text-muted-foreground hover:text-foreground hover:bg-secondary/50"}`}
+    >
+      <t.icon className="w-4 h-4 shrink-0" />
+      <span className="flex-1 text-left">{t.label}</span>
+      {t.badge && <Badge className="text-[9px] px-1.5 bg-violet-500/20 text-violet-300 border-violet-500/30">{t.badge}</Badge>}
+    </button>
+  );
 
+  const Sidebar = () => (
+    <div className="flex flex-col h-full">
+      <div className="p-4 border-b border-border flex items-center gap-3">
+        <Shield className="w-5 h-5 text-violet-400" />
+        <div>
+          <p className="font-semibold text-sm">Panel Admin</p>
+          <p className="text-[10px] text-muted-foreground truncate max-w-[140px]">{user?.email}</p>
+        </div>
+      </div>
+      <nav className="flex-1 p-3 space-y-1">
+        {TABS.map(t => <NavItem key={t.id} t={t} />)}
+      </nav>
+      <div className="p-3 border-t border-border">
+        <button onClick={() => navigate("/dashboard")} className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-secondary/50 cursor-pointer">
+          <ArrowUpRight className="w-4 h-4" /> Volver al Dashboard
+        </button>
+        <button onClick={signOut} className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-red-400 hover:bg-red-500/10 cursor-pointer mt-1">
+          <LogOut className="w-4 h-4" /> Cerrar sesión
+        </button>
+      </div>
+    </div>
+  );
+
+  // ─────────────────────────────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-background text-foreground flex">
-      {/* Toast */}
-      {toast && (
-        <div className="fixed top-4 right-4 z-50 bg-emerald-600 text-white px-4 py-3 rounded-xl shadow-lg text-sm font-medium animate-pulse">
-          {toast}
-        </div>
-      )}
+    <div className="flex h-screen bg-background text-foreground overflow-hidden">
 
-      {/* Overlay mobile */}
-      {sidebarOpen && <div className="fixed inset-0 z-30 bg-black/50 lg:hidden" onClick={() => setSidebarOpen(false)} />}
-
-      {/* Sidebar */}
-      <aside className={`fixed lg:static top-0 left-0 z-40 h-screen w-64 border-r border-border bg-card/80 backdrop-blur-xl flex flex-col transition-transform ${sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}`}>
-        <div className="flex items-center gap-2 p-4 border-b border-border">
-          <Shield className="text-violet-400 w-5 h-5" />
-          <span className="font-bold text-sm">NexusAI Admin</span>
-        </div>
-        <nav className="flex-1 p-3 space-y-1">
-          {sidebarItems.map(item => (
-            <button
-              key={item.id}
-              onClick={() => { setActiveTab(item.id); setSidebarOpen(false); }}
-              className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-colors cursor-pointer ${activeTab === item.id ? "bg-violet-500/10 text-violet-400" : "text-muted-foreground hover:text-foreground hover:bg-secondary/50"}`}
-            >
-              <div className="flex items-center gap-3">
-                <item.icon className="w-4 h-4" />
-                {item.label}
-              </div>
-              {item.badge ? <Badge className="bg-violet-500/20 text-violet-400 text-xs px-1.5">{item.badge}</Badge> : null}
-            </button>
-          ))}
-        </nav>
-        <div className="p-3 border-t border-border space-y-1">
-          <div className="px-3 py-2 text-xs text-muted-foreground truncate">{user?.email}</div>
-          <button onClick={() => { signOut(); navigate("/"); }} className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-red-400 hover:bg-red-500/10 cursor-pointer transition-colors">
-            <LogOut className="w-4 h-4" /> Cerrar sesión
-          </button>
-        </div>
+      {/* Sidebar desktop */}
+      <aside className="hidden md:flex flex-col w-64 border-r border-border bg-card/50 shrink-0">
+        <Sidebar />
       </aside>
 
+      {/* Sidebar mobile */}
+      <AnimatePresence>
+        {sideOpen && (
+          <>
+            <motion.div className="fixed inset-0 bg-black/50 z-40 md:hidden" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setSideOpen(false)} />
+            <motion.aside className="fixed left-0 top-0 h-full w-72 bg-card border-r border-border z-50 md:hidden flex flex-col" initial={{ x: -300 }} animate={{ x: 0 }} exit={{ x: -300 }} transition={{ type: "spring", stiffness: 300, damping: 30 }}>
+              <div className="flex justify-end p-3 border-b border-border">
+                <button onClick={() => setSideOpen(false)} className="cursor-pointer text-muted-foreground hover:text-foreground"><X className="w-5 h-5" /></button>
+              </div>
+              <Sidebar />
+            </motion.aside>
+          </>
+        )}
+      </AnimatePresence>
+
       {/* Main */}
-      <div className="flex-1 flex flex-col min-w-0">
-        {/* Header */}
-        <header className="sticky top-0 z-20 flex items-center justify-between px-4 py-3 border-b border-border bg-background/80 backdrop-blur">
+      <main className="flex-1 flex flex-col overflow-hidden">
+        {/* Topbar */}
+        <header className="flex items-center justify-between px-4 py-3 border-b border-border bg-card/30 shrink-0">
           <div className="flex items-center gap-3">
-            <button onClick={() => setSidebarOpen(true)} className="lg:hidden text-muted-foreground hover:text-foreground cursor-pointer"><Menu className="w-5 h-5" /></button>
-            <h1 className="font-semibold text-sm">
-              {activeTab === "dashboard" && "📊 Dashboard"}
-              {activeTab === "users" && "👥 Usuarios"}
-              {activeTab === "apps" && "🤖 Apps generadas"}
-              {activeTab === "withdrawals" && "💸 Solicitudes de retiro"}
-              {activeTab === "stats" && "📈 Estadísticas globales"}
-            </h1>
+            <button onClick={() => setSideOpen(true)} className="md:hidden cursor-pointer text-muted-foreground hover:text-foreground"><Menu className="w-5 h-5" /></button>
+            <h1 className="font-semibold text-sm">{TABS.find(t => t.id === tab)?.label}</h1>
           </div>
-          <Button variant="outline" size="sm" onClick={loadData} className="cursor-pointer gap-1 text-xs">
-            <RefreshCw className="w-3 h-3" /> Actualizar
-          </Button>
+          <Badge variant="outline" className="text-[10px] text-violet-400 border-violet-500/30">ADMIN</Badge>
         </header>
 
-        <main className="flex-1 p-4 overflow-auto">
-          <motion.div key={activeTab} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }}>
+        <div className="flex-1 overflow-y-auto p-4 space-y-6">
 
-            {/* ===== DASHBOARD ===== */}
-            {activeTab === "dashboard" && (
-              <div className="space-y-6">
-                {/* KPI Cards */}
-                <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-                  {[
-                    { label: "AdMob este mes", value: `€${admobRevenue.toFixed(2)}`, icon: Activity, color: "text-yellow-400", bg: "bg-yellow-500/10" },
-                    { label: "Amazon este mes", value: `€${amazonRevenue.toFixed(2)}`, icon: ShoppingCart, color: "text-orange-400", bg: "bg-orange-500/10" },
-                    { label: "Total este mes", value: `€${totalRevenue.toFixed(2)}`, icon: DollarSign, color: "text-emerald-400", bg: "bg-emerald-500/10" },
-                    { label: "Acumulado", value: `€${monthlyData.reduce((s, m) => s + m.amount, 0).toFixed(2)}`, icon: TrendingUp, color: "text-violet-400", bg: "bg-violet-500/10" },
-                  ].map(k => (
-                    <Card key={k.label} className="border-border bg-card/50">
-                      <CardContent className="p-4">
-                        <div className={`w-8 h-8 rounded-lg ${k.bg} flex items-center justify-center mb-2`}>
-                          <k.icon className={`w-4 h-4 ${k.color}`} />
-                        </div>
-                        <div className="text-xl font-bold">{k.value}</div>
-                        <div className="text-xs text-muted-foreground mt-0.5">{k.label}</div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
+          {/* ── DASHBOARD FINANCIERO ── */}
+          {tab === "finance" && (
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
 
-                {/* Gráfico de barras CSS */}
-                <Card className="border-border bg-card/50">
-                  <CardHeader><CardTitle className="text-sm">Ingresos mensuales</CardTitle></CardHeader>
-                  <CardContent>
-                    <div className="flex items-end gap-2 h-32">
-                      {monthlyData.map(m => (
-                        <div key={m.month} className="flex-1 flex flex-col items-center gap-1">
-                          <span className="text-xs text-muted-foreground">€{m.amount.toFixed(0)}</span>
-                          <div
-                            className="w-full rounded-t-md bg-violet-500/70 transition-all"
-                            style={{ height: `${(m.amount / maxAmount) * 100}%` }}
-                          />
-                          <span className="text-xs text-muted-foreground">{m.month}</span>
-                        </div>
-                      ))}
+              {/* KPIs */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                {[
+                  { label: "Ingresos Totales", value: `${totalIncome.toFixed(2)}€`, icon: DollarSign, color: "text-emerald-400" },
+                  { label: "Retirado", value: `${totalWithdrawn.toFixed(2)}€`, icon: Wallet, color: "text-violet-400" },
+                  { label: "Saldo Disponible", value: `${balance.toFixed(2)}€`, icon: TrendingUp, color: "text-cyan-400" },
+                ].map(k => (
+                  <Card key={k.label} className="bg-card/60 border-border">
+                    <CardContent className="p-4">
+                      <div className={`${k.color} mb-1`}><k.icon className="w-5 h-5" /></div>
+                      <p className="text-2xl font-bold">{k.value}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">{k.label}</p>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+
+              {/* Añadir ingreso manual */}
+              <Card className="bg-card/60 border-border">
+                <CardHeader className="pb-3"><CardTitle className="text-sm flex items-center gap-2"><PlusCircle className="w-4 h-4 text-emerald-400" /> Registrar Ingreso Real</CardTitle></CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-xs text-muted-foreground mb-1 block">Fuente</label>
+                      <select value={newEntry.source} onChange={e => setNewEntry(p => ({ ...p, source: e.target.value }))}
+                        className="w-full bg-background border border-input rounded-lg px-3 py-2 text-sm focus:outline-none">
+                        <option value="">Seleccionar...</option>
+                        <option>AdMob</option>
+                        <option>Amazon Afiliados</option>
+                        <option>Suscripciones</option>
+                        <option>Otro</option>
+                      </select>
                     </div>
+                    <div>
+                      <label className="text-xs text-muted-foreground mb-1 block">Importe (€)</label>
+                      <input type="number" min="0" step="0.01" placeholder="0.00" value={newEntry.amount}
+                        onChange={e => setNewEntry(p => ({ ...p, amount: e.target.value }))}
+                        className="w-full bg-background border border-input rounded-lg px-3 py-2 text-sm focus:outline-none" />
+                    </div>
+                  </div>
+                  <input placeholder="Nota opcional" value={newEntry.note}
+                    onChange={e => setNewEntry(p => ({ ...p, note: e.target.value }))}
+                    className="w-full bg-background border border-input rounded-lg px-3 py-2 text-sm focus:outline-none" />
+                  <Button onClick={addEntry} size="sm" className="cursor-pointer bg-emerald-600 hover:bg-emerald-700">
+                    <PlusCircle className="w-3 h-3 mr-1" /> Añadir
+                  </Button>
+                </CardContent>
+              </Card>
+
+              {/* Historial */}
+              <Card className="bg-card/60 border-border">
+                <CardHeader className="pb-3"><CardTitle className="text-sm">Historial de Ingresos</CardTitle></CardHeader>
+                <CardContent className="space-y-2">
+                  {finance.length === 0 && <p className="text-xs text-muted-foreground">Sin ingresos registrados aún.</p>}
+                  {finance.map((e, i) => (
+                    <div key={i} className="flex items-center justify-between py-2 border-b border-border last:border-0">
+                      <div>
+                        <p className="text-sm font-medium">{e.source}</p>
+                        <p className="text-xs text-muted-foreground">{e.note} · {new Date(e.date).toLocaleDateString("es-ES")}</p>
+                      </div>
+                      <span className={`text-sm font-bold ${e.amount > 0 ? "text-emerald-400" : "text-muted-foreground"}`}>
+                        +{e.amount.toFixed(2)}€
+                      </span>
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+            </motion.div>
+          )}
+
+          {/* ── SUPERAGENTE FINANCIERO ── */}
+          {tab === "superagent" && (
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-4">
+
+              <Card className="bg-card/60 border-border">
+                <CardContent className="p-4">
+                  <p className="text-xs text-muted-foreground leading-relaxed">
+                    🧠 <strong>SuperAgente Financiero</strong> — Analiza mercados, propone inversiones con % de confianza.
+                    Tú apruebas antes de invertir. Balance actual: <span className="text-emerald-400 font-bold">{balance.toFixed(2)}€</span>
+                  </p>
+                </CardContent>
+              </Card>
+
+              {/* Selector de modelo */}
+              <div className="flex flex-wrap gap-2">
+                {AGENT_MODELS.map(m => (
+                  <button key={m.id} onClick={() => setAgentModel(m.id)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all cursor-pointer ${m.color} ${agentModel === m.id ? "ring-2 ring-white/30 opacity-100" : "opacity-40 hover:opacity-70"}`}>
+                    <Cpu className="w-3 h-3 inline mr-1" />{m.label}
+                  </button>
+                ))}
+              </div>
+
+              {/* Chat */}
+              <Card className="bg-card/60 border-border">
+                <CardContent className="p-4 space-y-3">
+                  <div className="min-h-[200px] max-h-[400px] overflow-y-auto space-y-3 pr-1">
+                    {agentMessages.length === 0 && (
+                      <div className="space-y-2">
+                        {["¿Dónde invertir 50€ ahora mismo?", "Analiza Bitcoin vs ETF S&P500", "Dame 3 opciones para 100€ con riesgo bajo"].map(s => (
+                          <button key={s} onClick={() => setAgentInput(s)}
+                            className="w-full text-left px-3 py-2 rounded-lg bg-secondary/30 hover:bg-secondary/60 text-xs text-muted-foreground transition-colors cursor-pointer">
+                            💡 {s}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                    {agentMessages.map((m, i) => (
+                      <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
+                        <div className={`max-w-[85%] px-3 py-2 rounded-xl text-xs leading-relaxed whitespace-pre-wrap ${m.role === "user" ? "bg-violet-600 text-white" : "bg-secondary/60 text-foreground"}`}>
+                          {m.content}
+                        </div>
+                      </div>
+                    ))}
+                    {agentLoading && (
+                      <div className="flex justify-start">
+                        <div className="bg-secondary/60 px-3 py-2 rounded-xl text-xs flex items-center gap-2">
+                          <Loader2 className="w-3 h-3 animate-spin text-violet-400" /> Analizando mercados...
+                        </div>
+                      </div>
+                    )}
+                    <div ref={agentBottomRef} />
+                  </div>
+                  <div className="flex gap-2 pt-2 border-t border-border">
+                    <input
+                      value={agentInput}
+                      onChange={e => setAgentInput(e.target.value)}
+                      onKeyDown={e => e.key === "Enter" && !e.shiftKey && sendAgent()}
+                      placeholder="Pídeme lo que quieras..."
+                      className="flex-1 bg-background border border-input rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-violet-500"
+                    />
+                    <Button onClick={sendAgent} disabled={agentLoading || !agentInput.trim()} size="sm" className="cursor-pointer bg-violet-600 hover:bg-violet-700 shrink-0">
+                      {agentLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+          )}
+
+          {/* ── CARTERA ── */}
+          {tab === "portfolio" && (
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
+
+              {/* KPI cartera */}
+              <div className="grid grid-cols-2 gap-4">
+                <Card className="bg-card/60 border-border">
+                  <CardContent className="p-4">
+                    <p className="text-xs text-muted-foreground">Invertido Total</p>
+                    <p className="text-2xl font-bold text-violet-400">
+                      {portfolio.filter(i => i.status === "active").reduce((s, i) => s + i.amount, 0).toFixed(2)}€
+                    </p>
                   </CardContent>
                 </Card>
-
-                {/* Resumen rápido */}
-                <div className="grid grid-cols-3 gap-3">
-                  {[
-                    { label: "Apps publicadas", value: publishedApps },
-                    { label: "Retiros pendientes", value: pendingWithdrawals },
-                    { label: "Usuarios activos", value: users.filter(u => !u.banned).length },
-                  ].map(s => (
-                    <Card key={s.label} className="border-border bg-card/50">
-                      <CardContent className="p-4 text-center">
-                        <div className="text-2xl font-bold text-violet-400">{s.value}</div>
-                        <div className="text-xs text-muted-foreground mt-1">{s.label}</div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
+                <Card className="bg-card/60 border-border">
+                  <CardContent className="p-4">
+                    <p className="text-xs text-muted-foreground">ROI Promedio</p>
+                    <p className="text-2xl font-bold text-emerald-400">
+                      {portfolio.length > 0
+                        ? (portfolio.reduce((s, i) => s + i.roi, 0) / portfolio.length).toFixed(1)
+                        : "0.0"}%
+                    </p>
+                  </CardContent>
+                </Card>
               </div>
-            )}
 
-            {/* ===== USUARIOS ===== */}
-            {activeTab === "users" && (
-              <div className="space-y-3">
-                {users.length === 0 && <p className="text-muted-foreground text-sm text-center py-10">Sin usuarios registrados.</p>}
-                {users.map(u => (
-                  <Card key={u.id} className={`border-border ${u.banned ? "bg-red-500/5 border-red-500/20" : "bg-card/50"}`}>
-                    <CardContent className="p-4 flex items-center justify-between gap-3">
+              {/* Añadir inversión */}
+              <Card className="bg-card/60 border-border">
+                <CardHeader className="pb-3"><CardTitle className="text-sm flex items-center gap-2"><PlusCircle className="w-4 h-4 text-violet-400" /> Nueva Inversión</CardTitle></CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="grid grid-cols-2 gap-3">
+                    <input placeholder="Nombre (ej: Bitcoin, VOO...)" value={newInv.name}
+                      onChange={e => setNewInv(p => ({ ...p, name: e.target.value }))}
+                      className="w-full bg-background border border-input rounded-lg px-3 py-2 text-sm focus:outline-none" />
+                    <select value={newInv.type} onChange={e => setNewInv(p => ({ ...p, type: e.target.value }))}
+                      className="w-full bg-background border border-input rounded-lg px-3 py-2 text-sm focus:outline-none">
+                      <option>ETF</option><option>Cripto</option><option>Acción</option><option>REIT</option><option>Otro</option>
+                    </select>
+                    <input type="number" placeholder="Importe (€)" value={newInv.amount}
+                      onChange={e => setNewInv(p => ({ ...p, amount: e.target.value }))}
+                      className="w-full bg-background border border-input rounded-lg px-3 py-2 text-sm focus:outline-none" />
+                    <input type="number" placeholder="ROI actual (%)" value={newInv.roi}
+                      onChange={e => setNewInv(p => ({ ...p, roi: e.target.value }))}
+                      className="w-full bg-background border border-input rounded-lg px-3 py-2 text-sm focus:outline-none" />
+                  </div>
+                  <Button onClick={addInvestment} size="sm" className="cursor-pointer bg-violet-600 hover:bg-violet-700">
+                    <PlusCircle className="w-3 h-3 mr-1" /> Añadir a cartera
+                  </Button>
+                </CardContent>
+              </Card>
+
+              {/* Lista inversiones */}
+              <Card className="bg-card/60 border-border">
+                <CardHeader className="pb-3"><CardTitle className="text-sm">Inversiones Activas</CardTitle></CardHeader>
+                <CardContent className="space-y-2">
+                  {portfolio.length === 0 && <p className="text-xs text-muted-foreground">Sin inversiones registradas. Pregunta al SuperAgente para empezar.</p>}
+                  {portfolio.map(inv => (
+                    <div key={inv.id} className="flex items-center justify-between py-2 border-b border-border last:border-0 gap-2">
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
-                          <span className="font-medium text-sm truncate">{u.name}</span>
-                          {u.banned && <Badge className="bg-red-500/20 text-red-400 text-xs">Baneado</Badge>}
+                          <p className="text-sm font-medium truncate">{inv.name}</p>
+                          <Badge variant="outline" className="text-[9px] shrink-0">{inv.type}</Badge>
                         </div>
-                        <div className="text-xs text-muted-foreground truncate">{u.email}</div>
-                        <div className="text-xs text-muted-foreground mt-0.5">Créditos: {u.credits} · {new Date(u.created_at).toLocaleDateString("es-ES")}</div>
+                        <p className="text-xs text-muted-foreground">{new Date(inv.date).toLocaleDateString("es-ES")}</p>
                       </div>
-                      <Button
-                        size="sm" variant="outline"
-                        className={`cursor-pointer shrink-0 ${u.banned ? "border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10" : "border-red-500/30 text-red-400 hover:bg-red-500/10"}`}
-                        onClick={() => toggleBan(u.id)}
-                      >
-                        {u.banned ? <><Check className="w-3 h-3 mr-1" />Desbanear</> : <><Ban className="w-3 h-3 mr-1" />Banear</>}
-                      </Button>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            )}
-
-            {/* ===== APPS ===== */}
-            {activeTab === "apps" && (
-              <div className="space-y-3">
-                {apps.length === 0 && <p className="text-muted-foreground text-sm text-center py-10">Sin apps generadas aún.</p>}
-                {apps.map(a => (
-                  <Card key={a.id} className="border-border bg-card/50">
-                    <CardContent className="p-4 flex items-center justify-between gap-3">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="font-medium text-sm">{a.name}</span>
-                          <Badge className={a.status === "published" ? "bg-emerald-500/20 text-emerald-400 text-xs" : "bg-secondary text-muted-foreground text-xs"}>
-                            {a.status === "published" ? "Publicada" : "Borrador"}
-                          </Badge>
-                        </div>
-                        <div className="text-xs text-muted-foreground truncate">{a.description}</div>
-                        <div className="text-xs text-muted-foreground mt-0.5">
-                          👁 {a.views} · ⬇️ {a.downloads} · €{a.revenue.toFixed(2)} · {a.user_email}
-                        </div>
+                      <div className="text-right shrink-0">
+                        <p className="text-sm font-bold text-violet-400">{inv.amount.toFixed(2)}€</p>
+                        <p className={`text-xs font-medium ${inv.roi >= 0 ? "text-emerald-400" : "text-red-400"}`}>{inv.roi >= 0 ? "+" : ""}{inv.roi.toFixed(1)}%</p>
                       </div>
-                      <Button size="sm" variant="outline" className="cursor-pointer shrink-0 border-red-500/30 text-red-400 hover:bg-red-500/10" onClick={() => deleteApp(a.id)}>
-                        <Trash2 className="w-3 h-3 mr-1" /> Eliminar
-                      </Button>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            )}
-
-            {/* ===== RETIROS ===== */}
-            {activeTab === "withdrawals" && (
-              <div className="space-y-3">
-                {withdrawals.length === 0 && <p className="text-muted-foreground text-sm text-center py-10">Sin solicitudes de retiro.</p>}
-                {withdrawals.map(w => (
-                  <Card key={w.id} className={`border-border ${w.status === "approved" ? "bg-emerald-500/5 border-emerald-500/20" : w.status === "rejected" ? "bg-red-500/5 border-red-500/20" : "bg-card/50"}`}>
-                    <CardContent className="p-4 flex items-center justify-between gap-3 flex-wrap">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="font-bold text-emerald-400">€{w.amount.toFixed(2)}</span>
-                          <Badge className={
-                            w.status === "approved" ? "bg-emerald-500/20 text-emerald-400 text-xs" :
-                            w.status === "rejected" ? "bg-red-500/20 text-red-400 text-xs" :
-                            "bg-yellow-500/20 text-yellow-400 text-xs"
-                          }>
-                            {w.status === "approved" ? "Aprobado" : w.status === "rejected" ? "Rechazado" : "Pendiente"}
-                          </Badge>
-                        </div>
-                        <div className="text-xs text-muted-foreground">{w.user_email}</div>
-                        <div className="text-xs text-muted-foreground">PayPal: {w.paypal_email} · {new Date(w.created_at).toLocaleDateString("es-ES")}</div>
-                      </div>
-                      {w.status === "pending" && (
-                        <div className="flex gap-2 shrink-0">
-                          <Button size="sm" className="cursor-pointer bg-emerald-600 hover:bg-emerald-700 text-white" onClick={() => handleWithdrawal(w.id, "approved")}>
-                            <Check className="w-3 h-3 mr-1" /> Aprobar
-                          </Button>
-                          <Button size="sm" variant="outline" className="cursor-pointer border-red-500/30 text-red-400 hover:bg-red-500/10" onClick={() => handleWithdrawal(w.id, "rejected")}>
-                            <X className="w-3 h-3 mr-1" /> Rechazar
-                          </Button>
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            )}
-
-            {/* ===== ESTADÍSTICAS ===== */}
-            {activeTab === "stats" && (
-              <div className="space-y-6">
-                <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
-                  {[
-                    { label: "Total apps", value: apps.length, icon: Bot, color: "text-cyan-400" },
-                    { label: "Apps publicadas", value: publishedApps, icon: CreditCard, color: "text-emerald-400" },
-                    { label: "Total usuarios", value: users.length, icon: Users, color: "text-violet-400" },
-                    { label: "Usuarios activos", value: users.filter(u => !u.banned).length, icon: Activity, color: "text-blue-400" },
-                    { label: "Ingresos totales", value: `€${monthlyData.reduce((s, m) => s + m.amount, 0).toFixed(2)}`, icon: DollarSign, color: "text-yellow-400" },
-                    { label: "Retiros aprobados", value: withdrawals.filter(w => w.status === "approved").length, icon: Wallet, color: "text-pink-400" },
-                  ].map(s => (
-                    <Card key={s.label} className="border-border bg-card/50">
-                      <CardContent className="p-4">
-                        <s.icon className={`w-5 h-5 ${s.color} mb-2`} />
-                        <div className="text-2xl font-bold">{s.value}</div>
-                        <div className="text-xs text-muted-foreground mt-0.5">{s.label}</div>
-                      </CardContent>
-                    </Card>
+                      <button onClick={() => deleteInvestment(inv.id)} className="cursor-pointer text-muted-foreground hover:text-red-400 transition-colors ml-2">
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
                   ))}
-                </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+          )}
 
-                {/* Breakdown fuentes */}
-                <Card className="border-border bg-card/50">
-                  <CardHeader><CardTitle className="text-sm">Fuentes de ingresos</CardTitle></CardHeader>
+          {/* ── RETIROS ── */}
+          {tab === "withdrawals" && (
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
+
+              <Card className="bg-card/60 border-border">
+                <CardContent className="p-4">
+                  <p className="text-xs text-muted-foreground mb-1">Saldo disponible para retirar</p>
+                  <p className="text-3xl font-bold text-emerald-400">{balance.toFixed(2)}€</p>
+                  <p className="text-[10px] text-muted-foreground mt-1">PayPal: <span className="text-foreground">joanlazaro83@gmail.com</span></p>
+                </CardContent>
+              </Card>
+
+              <Card className="bg-card/60 border-border">
+                <CardHeader className="pb-3"><CardTitle className="text-sm flex items-center gap-2"><Wallet className="w-4 h-4 text-emerald-400" /> Solicitar Retiro</CardTitle></CardHeader>
+                <CardContent className="space-y-3">
+                  <input type="number" min="1" step="0.01" max={balance}
+                    placeholder={`Máx. ${balance.toFixed(2)}€`} value={withdrawAmount}
+                    onChange={e => setWithdrawAmount(e.target.value)}
+                    className="w-full bg-background border border-input rounded-lg px-3 py-2 text-sm focus:outline-none" />
+                  <div className="flex gap-2">
+                    {[10, 25, 50].map(amt => (
+                      <button key={amt} onClick={() => setWithdrawAmount(Math.min(amt, balance).toString())}
+                        className="px-3 py-1 rounded-lg bg-secondary/40 hover:bg-secondary/70 text-xs cursor-pointer transition-colors">
+                        {amt}€
+                      </button>
+                    ))}
+                    <button onClick={() => setWithdrawAmount(balance.toFixed(2))}
+                      className="px-3 py-1 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/40 text-emerald-400 text-xs cursor-pointer transition-colors">
+                      Todo
+                    </button>
+                  </div>
+                  <Button onClick={requestWithdrawal} disabled={!withdrawAmount || parseFloat(withdrawAmount) <= 0 || parseFloat(withdrawAmount) > balance}
+                    size="sm" className="cursor-pointer bg-emerald-600 hover:bg-emerald-700 w-full">
+                    <Wallet className="w-3 h-3 mr-1" /> Solicitar retiro a PayPal
+                  </Button>
+                  <p className="text-[10px] text-muted-foreground">Los retiros se procesan manualmente en 24-48h.</p>
+                </CardContent>
+              </Card>
+
+              {/* Historial retiros */}
+              <Card className="bg-card/60 border-border">
+                <CardHeader className="pb-3"><CardTitle className="text-sm">Historial de Retiros</CardTitle></CardHeader>
+                <CardContent className="space-y-2">
+                  {withdrawals.length === 0 && <p className="text-xs text-muted-foreground">Sin retiros realizados aún.</p>}
+                  {withdrawals.map(w => (
+                    <div key={w.id} className="flex items-center justify-between py-2 border-b border-border last:border-0">
+                      <div>
+                        <p className="text-sm font-medium">{w.amount.toFixed(2)}€ → PayPal</p>
+                        <p className="text-xs text-muted-foreground">{new Date(w.date).toLocaleDateString("es-ES")}</p>
+                      </div>
+                      <Badge className={`text-[10px] ${w.status === "sent" ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30" : w.status === "pending" ? "bg-yellow-500/20 text-yellow-400 border-yellow-500/30" : "bg-red-500/20 text-red-400 border-red-500/30"}`}>
+                        {w.status === "sent" ? "✓ Enviado" : w.status === "pending" ? "⏳ Pendiente" : "✗ Fallido"}
+                      </Badge>
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+            </motion.div>
+          )}
+
+          {/* ── CONFIG ── */}
+          {tab === "config" && (
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
+
+              {[
+                { section: "AdMob", color: "text-yellow-400", fields: [
+                  { key: "admob_app_id",              label: "App ID",                  placeholder: "ca-app-pub-4903263409458961~5751005760" },
+                  { key: "admob_banner_id",            label: "Banner",                  placeholder: "ca-app-pub-4903263409458961/8825147276" },
+                  { key: "admob_interstitial_id",      label: "Intersticial",            placeholder: "ca-app-pub-4903263409458961/4622591073" },
+                  { key: "admob_interstitial_reward_id", label: "Intersticial Bonificado", placeholder: "ca-app-pub-4903263409458961/1824624651" },
+                  { key: "admob_appopen_id",           label: "Carga de App",            placeholder: "ca-app-pub-4903263409458961/8054991080" },
+                  { key: "admob_rewarded_id",          label: "Bonificado",              placeholder: "ca-app-pub-4903263409458961/3980014703" },
+                  { key: "admob_native_id",            label: "Nativo Avanzado",         placeholder: "ca-app-pub-4903263409458961/2202908920" },
+                ]},
+                { section: "Amazon Afiliados", color: "text-orange-400", fields: [
+                  { key: "amazon_tracking_id", label: "Tracking ID", placeholder: "r3dm01-21" },
+                ]},
+                { section: "FreeLLM / Groq", color: "text-violet-400", fields: [
+                  { key: "freellm_key", label: "FreeLLM API Key", placeholder: "free" },
+                  { key: "groq_key", label: "Groq API Key", placeholder: "gsk_..." },
+                ]},
+                { section: "PayPal (Retiros)", color: "text-cyan-400", fields: [
+                  { key: "paypal_email", label: "Email PayPal", placeholder: "joanlazaro83@gmail.com" },
+                ]},
+              ].map(({ section, color, fields }) => (
+                <Card key={section} className="bg-card/60 border-border">
+                  <CardHeader className="pb-3">
+                    <CardTitle className={`text-sm flex items-center gap-2 ${color}`}>
+                      <Settings className="w-4 h-4" /> {section}
+                    </CardTitle>
+                  </CardHeader>
                   <CardContent className="space-y-3">
-                    {[
-                      { label: "AdMob (anuncios)", pct: 60, color: "bg-yellow-500" },
-                      { label: "Amazon Afiliados", pct: 40, color: "bg-orange-500" },
-                    ].map(s => (
-                      <div key={s.label}>
-                        <div className="flex justify-between text-xs mb-1">
-                          <span className="text-muted-foreground">{s.label}</span>
-                          <span className="font-medium">{s.pct}%</span>
-                        </div>
-                        <div className="w-full bg-secondary rounded-full h-2">
-                          <div className={`${s.color} h-2 rounded-full transition-all`} style={{ width: `${s.pct}%` }} />
-                        </div>
+                    {fields.map(f => (
+                      <div key={f.key}>
+                        <label className="text-xs text-muted-foreground mb-1 block">{f.label}</label>
+                        <input
+                          value={(config as Record<string, string>)[f.key] ?? ""}
+                          onChange={e => setConfig(p => ({ ...p, [f.key]: e.target.value }))}
+                          placeholder={f.placeholder}
+                          className="w-full bg-background border border-input rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-1 focus:ring-ring"
+                        />
                       </div>
                     ))}
                   </CardContent>
                 </Card>
+              ))}
 
-                {/* Apps por usuario */}
-                <Card className="border-border bg-card/50">
-                  <CardHeader><CardTitle className="text-sm">Apps por usuario</CardTitle></CardHeader>
-                  <CardContent className="space-y-2">
-                    {users.map(u => {
-                      const userApps = apps.filter(a => a.user_email === u.email).length;
-                      const pct = apps.length > 0 ? (userApps / apps.length) * 100 : 0;
-                      return (
-                        <div key={u.id}>
-                          <div className="flex justify-between text-xs mb-1">
-                            <span className="text-muted-foreground truncate">{u.email}</span>
-                            <span className="font-medium shrink-0 ml-2">{userApps} apps</span>
-                          </div>
-                          <div className="w-full bg-secondary rounded-full h-1.5">
-                            <div className="bg-violet-500 h-1.5 rounded-full" style={{ width: `${pct}%` }} />
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </CardContent>
-                </Card>
-              </div>
-            )}
+              <Button onClick={saveConfig} className="cursor-pointer bg-violet-600 hover:bg-violet-700 w-full">
+                <CheckCircle className="w-4 h-4 mr-2" /> Guardar configuración
+              </Button>
+            </motion.div>
+          )}
 
-          </motion.div>
-        </main>
-      </div>
+        </div>
+      </main>
     </div>
   );
 }
