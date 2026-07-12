@@ -1,10 +1,10 @@
-import { useState, useEffect, useRef } from "react";
-import { motion, AnimatePresence } from "motion/react";
+import { useState, useEffect, useCallback } from "react";
+import { motion } from "motion/react";
 import {
-  BarChart3, DollarSign, Shield, LogOut, Menu, X,
-  TrendingUp, Bot, Wallet, Settings, Send, Loader2,
-  RefreshCw, CheckCircle, AlertCircle, ArrowUpRight,
-  PlusCircle, Trash2, Eye, ShoppingCart, Cpu,
+  BarChart3, Users, DollarSign, CreditCard, Shield,
+  LogOut, Menu, X, Check, AlertCircle, Trash2, Ban,
+  ShoppingCart, Wallet, TrendingUp, Bot, Euro, Activity,
+  ChevronRight, RefreshCw,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -12,616 +12,772 @@ import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/lib/auth";
 import { useNavigate } from "react-router-dom";
 
-// ─── Tipos ────────────────────────────────────────────────────────────────────
-interface FinancialEntry { source: string; amount: number; date: string; note: string; }
-interface Investment { id: string; name: string; type: string; amount: number; roi: number; date: string; status: "active"|"closed"; }
-interface Withdrawal { id: string; amount: number; status: "pending"|"sent"|"failed"; date: string; }
-interface AIMessage { role: "user"|"assistant"; content: string; }
-type TabId = "finance"|"superagent"|"portfolio"|"withdrawals"|"config";
-
-// ─── localStorage helpers ─────────────────────────────────────────────────────
-function getLS<T>(k: string, fb: T): T {
-  try { return JSON.parse(localStorage.getItem(k) || "null") ?? fb; } catch { return fb; }
-}
-function setLS(k: string, v: unknown) { localStorage.setItem(k, JSON.stringify(v)); }
-
-// ─── Datos iniciales ──────────────────────────────────────────────────────────
-function seedFinance() {
-  if (getLS("nexusai_finance", null)) return;
-  const entries: FinancialEntry[] = [
-    { source: "AdMob", amount: 0, date: new Date().toISOString(), note: "App ID: ca-app-pub-4903263409458961~5751005760" },
-    { source: "Amazon Afiliados", amount: 0, date: new Date().toISOString(), note: "Tracking ID: r3dm01-21 activo" },
-    { source: "Suscripciones", amount: 0, date: new Date().toISOString(), note: "Aún no hay suscriptores de pago" },
-  ];
-  setLS("nexusai_finance", entries);
-}
-function seedPortfolio() {
-  if (getLS("nexusai_portfolio", null)) return;
-  setLS("nexusai_portfolio", []);
-}
-function seedWithdrawals() {
-  if (getLS("nexusai_my_withdrawals", null)) return;
-  setLS("nexusai_my_withdrawals", []);
+// ──────────────────────────────────────────────
+// Types
+// ──────────────────────────────────────────────
+interface StoredUser {
+  id: string;
+  email: string;
+  name: string;
+  role: "user" | "admin";
+  credits: number;
+  balance: number;
+  banned?: boolean;
+  createdAt?: string;
 }
 
-// ─── Config por defecto ───────────────────────────────────────────────────────
-const DEFAULT_CONFIG = {
-  admob_app_id: "ca-app-pub-4903263409458961~5751005760",
-  admob_banner_id: "ca-app-pub-4903263409458961/8825147276",
-  admob_interstitial_id: "ca-app-pub-4903263409458961/4622591073",
-  admob_interstitial_reward_id: "ca-app-pub-4903263409458961/1824624651",
-  admob_appopen_id: "ca-app-pub-4903263409458961/8054991080",
-  admob_rewarded_id: "ca-app-pub-4903263409458961/3980014703",
-  admob_native_id: "ca-app-pub-4903263409458961/2202908920",
-  amazon_tracking_id: "r3dm01-21",
-  freellm_key: "free",
-  groq_key: "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",
-  paypal_email: "joanlazaro83@gmail.com",
-};
-
-// ─── SuperAgente: modelos disponibles ────────────────────────────────────────
-const AGENT_MODELS = [
-  { id: "deepseek", label: "DeepSeek R1", color: "text-emerald-400 border-emerald-500/40 bg-emerald-500/10" },
-  { id: "groq",     label: "Llama 3.3 70B", color: "text-violet-400 border-violet-500/40 bg-violet-500/10" },
-  { id: "freellm",  label: "GPT-4o Mini", color: "text-cyan-400 border-cyan-500/40 bg-cyan-500/10" },
-];
-
-async function callAgent(messages: AIMessage[], model: string, groqKey: string): Promise<string> {
-  const isGroq = model !== "freellm";
-  const url = isGroq
-    ? "https://api.groq.com/openai/v1/chat/completions"
-    : "https://api.freellm.net/v1/chat/completions";
-  const mdl = model === "deepseek" ? "deepseek-r1-distill-llama-70b"
-    : model === "groq" ? "llama-3.3-70b-versatile"
-    : "gpt-4o-mini-free";
-  const key = isGroq ? groqKey : "free";
-  const res = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
-    body: JSON.stringify({ model: mdl, messages, max_tokens: 1024, temperature: 0.3 }),
-  });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  const d = await res.json();
-  let reply = d.choices?.[0]?.message?.content ?? "";
-  reply = reply.replace(/<think>[\s\S]*?<\/think>/g, "").trim();
-  return reply;
+interface StoredApp {
+  id: string;
+  name: string;
+  userId: string;
+  userEmail?: string;
+  createdAt: string;
+  status?: string;
+  platform?: string;
 }
 
-// ─── Nav tabs ─────────────────────────────────────────────────────────────────
-const TABS: { id: TabId; label: string; icon: React.ElementType; badge?: string }[] = [
-  { id: "finance",     label: "Dashboard Financiero", icon: BarChart3 },
-  { id: "superagent",  label: "SuperAgente Financiero", icon: Bot, badge: "IA" },
-  { id: "portfolio",   label: "Cartera",              icon: TrendingUp },
-  { id: "withdrawals", label: "Retiros",              icon: Wallet },
-  { id: "config",      label: "Config",               icon: Settings },
-];
+interface Withdrawal {
+  id: string;
+  userId: string;
+  userEmail?: string;
+  amount: number;
+  status: "pending" | "approved" | "rejected";
+  createdAt: string;
+  paypalEmail?: string;
+  note?: string;
+}
 
-// ─── Componente principal ─────────────────────────────────────────────────────
-export default function Admin() {
-  const { user, signOut, isAdmin } = useAuth();
-  const navigate = useNavigate();
-  const [tab, setTab] = useState<TabId>("finance");
-  const [sideOpen, setSideOpen] = useState(false);
+type Tab = "dashboard" | "users" | "apps" | "withdrawals" | "stats";
 
-  // Finance
-  const [finance, setFinance] = useState<FinancialEntry[]>([]);
-  const [newEntry, setNewEntry] = useState({ source: "", amount: "", note: "" });
+// ──────────────────────────────────────────────
+// Helpers
+// ──────────────────────────────────────────────
+const PAYPAL_EMAIL = "joanlazaro83@gmail.com";
+const ADMIN_EMAIL = "joanakar3dmoon@gmail.com";
 
-  // SuperAgente
-  const [agentMessages, setAgentMessages] = useState<AIMessage[]>([]);
-  const [agentInput, setAgentInput] = useState("");
-  const [agentLoading, setAgentLoading] = useState(false);
-  const [agentModel, setAgentModel] = useState("deepseek");
-  const agentBottomRef = useRef<HTMLDivElement>(null);
+function ls<T>(key: string, fallback: T): T {
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? (JSON.parse(raw) as T) : fallback;
+  } catch {
+    return fallback;
+  }
+}
 
-  // Cartera
-  const [portfolio, setPortfolio] = useState<Investment[]>([]);
-  const [newInv, setNewInv] = useState({ name: "", type: "ETF", amount: "", roi: "" });
+function lsSet(key: string, value: unknown) {
+  localStorage.setItem(key, JSON.stringify(value));
+}
 
-  // Retiros
-  const [withdrawals, setWithdrawals] = useState<Withdrawal[]>([]);
-  const [withdrawAmount, setWithdrawAmount] = useState("");
+// ──────────────────────────────────────────────
+// Simulated revenue data (AdMob + Amazon)
+// ──────────────────────────────────────────────
+const MONTHS = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
+const ADMOB_DATA = [12, 18, 14, 22, 30, 27, 35, 40, 33, 28, 45, 52];
+const AMAZON_DATA = [5, 8, 6, 10, 14, 12, 16, 20, 15, 13, 22, 28];
 
-  // Config
-  const [config, setConfig] = useState(DEFAULT_CONFIG);
+// ──────────────────────────────────────────────
+// Bar Chart (pure CSS)
+// ──────────────────────────────────────────────
+function BarChart({ admob, amazon, months }: { admob: number[]; amazon: number[]; months: string[] }) {
+  const max = Math.max(...admob, ...amazon);
+  const currentMonth = new Date().getMonth();
 
-  // ── Init ──
-  useEffect(() => {
-    if (!isAdmin) { navigate("/dashboard"); return; }
-    seedFinance(); seedPortfolio(); seedWithdrawals();
-    setFinance(getLS("nexusai_finance", []));
-    setPortfolio(getLS("nexusai_portfolio", []));
-    setWithdrawals(getLS("nexusai_my_withdrawals", []));
-    setConfig(getLS("nexusai_config", DEFAULT_CONFIG));
-  }, [isAdmin, navigate]);
-
-  useEffect(() => { agentBottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [agentMessages]);
-
-  // ── Totals ──
-  const totalIncome = finance.reduce((s, e) => s + e.amount, 0);
-  const totalWithdrawn = withdrawals.filter(w => w.status === "sent").reduce((s, w) => s + w.amount, 0);
-  const balance = totalIncome - totalWithdrawn;
-
-  // ── Finance: añadir entrada ──
-  const addEntry = () => {
-    if (!newEntry.source || !newEntry.amount) return;
-    const entry: FinancialEntry = {
-      source: newEntry.source,
-      amount: parseFloat(newEntry.amount),
-      date: new Date().toISOString(),
-      note: newEntry.note,
-    };
-    const updated = [entry, ...finance];
-    setFinance(updated); setLS("nexusai_finance", updated);
-    setNewEntry({ source: "", amount: "", note: "" });
-  };
-
-  // ── SuperAgente: enviar ──
-  const SYSTEM_AGENT = `Eres un SuperAgente Financiero de élite para el usuario Joan (músico independiente, España).
-Tu misión: analizar mercados (acciones, ETFs, cripto, REITs), proponer inversiones concretas con % de confianza y reasoning claro.
-Balance actual del usuario: ${balance.toFixed(2)}€.
-Ingresos totales acumulados: ${totalIncome.toFixed(2)}€.
-Responde siempre en español. Sé directo, concreto, con datos reales. Propón siempre 3 opciones ordenadas por riesgo/beneficio.`;
-
-  const sendAgent = async () => {
-    if (!agentInput.trim() || agentLoading) return;
-    const userMsg: AIMessage = { role: "user", content: agentInput.trim() };
-    const msgs: AIMessage[] = [
-      { role: "user", content: SYSTEM_AGENT },
-      ...agentMessages,
-      userMsg,
-    ];
-    setAgentMessages(prev => [...prev, userMsg]);
-    setAgentInput("");
-    setAgentLoading(true);
-    try {
-      const reply = await callAgent(msgs, agentModel, config.groq_key);
-      setAgentMessages(prev => [...prev, { role: "assistant", content: reply }]);
-    } catch (err) {
-      setAgentMessages(prev => [...prev, { role: "assistant", content: `❌ Error: ${err instanceof Error ? err.message : "Fallo"}` }]);
-    } finally { setAgentLoading(false); }
-  };
-
-  // ── Cartera: añadir inversión ──
-  const addInvestment = () => {
-    if (!newInv.name || !newInv.amount) return;
-    const inv: Investment = {
-      id: Date.now().toString(),
-      name: newInv.name,
-      type: newInv.type,
-      amount: parseFloat(newInv.amount),
-      roi: parseFloat(newInv.roi) || 0,
-      date: new Date().toISOString(),
-      status: "active",
-    };
-    const updated = [inv, ...portfolio];
-    setPortfolio(updated); setLS("nexusai_portfolio", updated);
-    setNewInv({ name: "", type: "ETF", amount: "", roi: "" });
-  };
-
-  const deleteInvestment = (id: string) => {
-    const updated = portfolio.filter(i => i.id !== id);
-    setPortfolio(updated); setLS("nexusai_portfolio", updated);
-  };
-
-  // ── Retiros ──
-  const requestWithdrawal = () => {
-    const amt = parseFloat(withdrawAmount);
-    if (!amt || amt <= 0 || amt > balance) return;
-    const w: Withdrawal = { id: Date.now().toString(), amount: amt, status: "pending", date: new Date().toISOString() };
-    const updated = [w, ...withdrawals];
-    setWithdrawals(updated); setLS("nexusai_my_withdrawals", updated);
-    setWithdrawAmount("");
-  };
-
-  // ── Config save ──
-  const saveConfig = () => { setLS("nexusai_config", config); };
-
-  // ── Sidebar nav ──
-  const NavItem = ({ t }: { t: typeof TABS[0] }) => (
-    <button
-      onClick={() => { setTab(t.id); setSideOpen(false); }}
-      className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors cursor-pointer ${tab === t.id ? "bg-violet-500/20 text-violet-300" : "text-muted-foreground hover:text-foreground hover:bg-secondary/50"}`}
-    >
-      <t.icon className="w-4 h-4 shrink-0" />
-      <span className="flex-1 text-left">{t.label}</span>
-      {t.badge && <Badge className="text-[9px] px-1.5 bg-violet-500/20 text-violet-300 border-violet-500/30">{t.badge}</Badge>}
-    </button>
-  );
-
-  const Sidebar = () => (
-    <div className="flex flex-col h-full">
-      <div className="p-4 border-b border-border flex items-center gap-3">
-        <Shield className="w-5 h-5 text-violet-400" />
-        <div>
-          <p className="font-semibold text-sm">Panel Admin</p>
-          <p className="text-[10px] text-muted-foreground truncate max-w-[140px]">{user?.email}</p>
-        </div>
+  return (
+    <div className="w-full overflow-x-auto">
+      <div className="flex items-end gap-1 h-40 min-w-[520px] mt-4">
+        {months.map((m, i) => (
+          <div key={m} className="flex flex-col items-center gap-0.5 flex-1">
+            <div className="flex items-end gap-0.5 w-full justify-center">
+              {/* AdMob bar */}
+              <div
+                title={`AdMob: €${admob[i]}`}
+                style={{ height: `${(admob[i] / max) * 100}%` }}
+                className={`w-3 rounded-t transition-all duration-500 ${
+                  i === currentMonth
+                    ? "bg-purple-400"
+                    : "bg-purple-600/60 hover:bg-purple-500"
+                }`}
+              />
+              {/* Amazon bar */}
+              <div
+                title={`Amazon: €${amazon[i]}`}
+                style={{ height: `${(amazon[i] / max) * 100}%` }}
+                className={`w-3 rounded-t transition-all duration-500 ${
+                  i === currentMonth
+                    ? "bg-orange-400"
+                    : "bg-orange-600/60 hover:bg-orange-500"
+                }`}
+              />
+            </div>
+            <span className={`text-[10px] ${i === currentMonth ? "text-white font-bold" : "text-muted-foreground"}`}>
+              {m}
+            </span>
+          </div>
+        ))}
       </div>
-      <nav className="flex-1 p-3 space-y-1">
-        {TABS.map(t => <NavItem key={t.id} t={t} />)}
-      </nav>
-      <div className="p-3 border-t border-border">
-        <button onClick={() => navigate("/dashboard")} className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-secondary/50 cursor-pointer">
-          <ArrowUpRight className="w-4 h-4" /> Volver al Dashboard
-        </button>
-        <button onClick={signOut} className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-red-400 hover:bg-red-500/10 cursor-pointer mt-1">
-          <LogOut className="w-4 h-4" /> Cerrar sesión
-        </button>
+      {/* Legend */}
+      <div className="flex gap-4 mt-3 text-xs text-muted-foreground">
+        <span className="flex items-center gap-1">
+          <span className="inline-block w-3 h-3 rounded bg-purple-500" /> AdMob
+        </span>
+        <span className="flex items-center gap-1">
+          <span className="inline-block w-3 h-3 rounded bg-orange-500" /> Amazon
+        </span>
       </div>
     </div>
   );
+}
 
-  // ─────────────────────────────────────────────────────────────────────────────
+// ──────────────────────────────────────────────
+// Stat Card
+// ──────────────────────────────────────────────
+function StatCard({
+  icon: Icon,
+  label,
+  value,
+  sub,
+  color,
+}: {
+  icon: React.ElementType;
+  label: string;
+  value: string | number;
+  sub?: string;
+  color?: string;
+}) {
   return (
-    <div className="flex h-screen bg-background text-foreground overflow-hidden">
+    <Card className="bg-card border-border">
+      <CardContent className="p-4 flex items-center gap-3">
+        <div className={`p-2 rounded-lg ${color ?? "bg-purple-600/20"}`}>
+          <Icon className={`w-5 h-5 ${color ? "text-white" : "text-purple-400"}`} />
+        </div>
+        <div>
+          <p className="text-xs text-muted-foreground">{label}</p>
+          <p className="text-xl font-bold text-foreground">{value}</p>
+          {sub && <p className="text-xs text-muted-foreground">{sub}</p>}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
 
-      {/* Sidebar desktop */}
-      <aside className="hidden md:flex flex-col w-64 border-r border-border bg-card/50 shrink-0">
-        <Sidebar />
+// ──────────────────────────────────────────────
+// Main Component
+// ──────────────────────────────────────────────
+export default function Admin() {
+  const { user, isAdmin, signOut } = useAuth();
+  const navigate = useNavigate();
+
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<Tab>("dashboard");
+
+  const [users, setUsers] = useState<StoredUser[]>([]);
+  const [apps, setApps] = useState<StoredApp[]>([]);
+  const [withdrawals, setWithdrawals] = useState<Withdrawal[]>([]);
+  const [approvedNote, setApprovedNote] = useState<string | null>(null);
+
+  // ── Guard ──────────────────────────────────
+  useEffect(() => {
+    if (!isAdmin && user !== null) {
+      navigate("/dashboard");
+    }
+    // Also guard by email even if role mismatch
+    if (user && user.email !== ADMIN_EMAIL) {
+      navigate("/dashboard");
+    }
+  }, [isAdmin, user, navigate]);
+
+  // ── Load from localStorage ──────────────────
+  const loadData = useCallback(() => {
+    setUsers(ls<StoredUser[]>("nexusai_users", []));
+    setApps(ls<StoredApp[]>("nexusai_apps", []));
+    setWithdrawals(ls<Withdrawal[]>("nexusai_withdrawals", []));
+  }, []);
+
+  useEffect(() => {
+    loadData();
+    // Seed demo data if empty
+    seedDemoData();
+  }, [loadData]);
+
+  function seedDemoData() {
+    // Seed sample users if none
+    if (!localStorage.getItem("nexusai_users")) {
+      const demo: StoredUser[] = [
+        { id: "u1", email: "alice@example.com", name: "Alice", role: "user", credits: 85, balance: 0, banned: false, createdAt: "2026-06-10" },
+        { id: "u2", email: "bob@example.com", name: "Bob", role: "user", credits: 20, balance: 0, banned: false, createdAt: "2026-06-22" },
+        { id: "u3", email: "carol@example.com", name: "Carol", role: "user", credits: 200, balance: 0, banned: false, createdAt: "2026-07-01" },
+      ];
+      lsSet("nexusai_users", demo);
+      setUsers(demo);
+    }
+    // Seed sample apps
+    if (!localStorage.getItem("nexusai_apps")) {
+      const demoApps: StoredApp[] = [
+        { id: "a1", name: "TodoApp Pro", userId: "u1", userEmail: "alice@example.com", createdAt: "2026-06-15", status: "active", platform: "Android" },
+        { id: "a2", name: "WeatherWidget", userId: "u2", userEmail: "bob@example.com", createdAt: "2026-06-28", status: "active", platform: "iOS" },
+        { id: "a3", name: "FitTracker", userId: "u3", userEmail: "carol@example.com", createdAt: "2026-07-05", status: "active", platform: "Android" },
+        { id: "a4", name: "MusicMix AI", userId: "u1", userEmail: "alice@example.com", createdAt: "2026-07-09", status: "active", platform: "Android" },
+      ];
+      lsSet("nexusai_apps", demoApps);
+      setApps(demoApps);
+    }
+    // Seed sample withdrawals
+    if (!localStorage.getItem("nexusai_withdrawals")) {
+      const demoW: Withdrawal[] = [
+        { id: "w1", userId: "u1", userEmail: "alice@example.com", amount: 50, status: "pending", createdAt: "2026-07-10", paypalEmail: "alice@example.com" },
+        { id: "w2", userId: "u3", userEmail: "carol@example.com", amount: 120, status: "pending", createdAt: "2026-07-11", paypalEmail: "carol@example.com" },
+        { id: "w3", userId: "u2", userEmail: "bob@example.com", amount: 30, status: "approved", createdAt: "2026-07-08", paypalEmail: "bob@example.com", note: `Enviado a PayPal ${PAYPAL_EMAIL}` },
+      ];
+      lsSet("nexusai_withdrawals", demoW);
+      setWithdrawals(demoW);
+    }
+  }
+
+  // ── Actions: Users ──────────────────────────
+  function toggleBan(id: string) {
+    const updated = users.map((u) =>
+      u.id === id ? { ...u, banned: !u.banned } : u
+    );
+    setUsers(updated);
+    lsSet("nexusai_users", updated);
+  }
+
+  // ── Actions: Apps ───────────────────────────
+  function deleteApp(id: string) {
+    const updated = apps.filter((a) => a.id !== id);
+    setApps(updated);
+    lsSet("nexusai_apps", updated);
+  }
+
+  // ── Actions: Withdrawals ────────────────────
+  function processWithdrawal(id: string, action: "approve" | "reject") {
+    const updated = withdrawals.map((w) => {
+      if (w.id !== id) return w;
+      const note =
+        action === "approve"
+          ? `Enviado a PayPal ${PAYPAL_EMAIL}`
+          : "Solicitud rechazada por el administrador";
+      return { ...w, status: action === "approve" ? "approved" : "rejected", note } as Withdrawal;
+    });
+    setWithdrawals(updated);
+    lsSet("nexusai_withdrawals", updated);
+
+    if (action === "approve") {
+      const w = withdrawals.find((x) => x.id === id);
+      setApprovedNote(`✅ €${w?.amount} enviado a PayPal: ${PAYPAL_EMAIL}`);
+      setTimeout(() => setApprovedNote(null), 5000);
+    }
+  }
+
+  // ── Derived stats ───────────────────────────
+  const currentMonthIdx = new Date().getMonth();
+  const admobMonth = ADMOB_DATA[currentMonthIdx];
+  const amazonMonth = AMAZON_DATA[currentMonthIdx];
+  const totalMonth = admobMonth + amazonMonth;
+  const totalRevenue = ADMOB_DATA.reduce((a, b) => a + b, 0) + AMAZON_DATA.reduce((a, b) => a + b, 0);
+  const pendingCount = withdrawals.filter((w) => w.status === "pending").length;
+  const bannedCount = users.filter((u) => u.banned).length;
+
+  // ── Sidebar items ───────────────────────────
+  const sidebarItems: { id: Tab; icon: React.ElementType; label: string; badge?: number }[] = [
+    { id: "dashboard", icon: BarChart3, label: "Dashboard" },
+    { id: "users", icon: Users, label: "Usuarios", badge: bannedCount || undefined },
+    { id: "apps", icon: Bot, label: "Apps", badge: apps.length || undefined },
+    { id: "withdrawals", icon: Wallet, label: "Retiros", badge: pendingCount || undefined },
+    { id: "stats", icon: Activity, label: "Estadísticas" },
+  ];
+
+  // ── Render guard ─────────────────────────────
+  if (!user || user.email !== ADMIN_EMAIL) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <Card className="p-8 text-center space-y-4">
+          <AlertCircle className="w-12 h-12 text-red-500 mx-auto" />
+          <h2 className="text-xl font-bold text-foreground">Acceso denegado</h2>
+          <p className="text-muted-foreground">Solo el administrador puede acceder a este panel.</p>
+          <Button onClick={() => navigate("/dashboard")}>Volver al Dashboard</Button>
+        </Card>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-background flex">
+      {/* ── Sidebar ── */}
+      <aside
+        className={`fixed inset-y-0 left-0 z-50 w-60 bg-card border-r border-border flex flex-col transform transition-transform duration-200
+          ${sidebarOpen ? "translate-x-0" : "-translate-x-full"} lg:translate-x-0 lg:static lg:z-auto`}
+      >
+        {/* Logo */}
+        <div className="flex items-center gap-2 p-4 border-b border-border">
+          <Shield className="w-6 h-6 text-purple-400" />
+          <span className="font-bold text-foreground">NexusAI Admin</span>
+          <button
+            className="ml-auto lg:hidden text-muted-foreground"
+            onClick={() => setSidebarOpen(false)}
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        {/* Nav */}
+        <nav className="flex-1 p-3 space-y-1">
+          {sidebarItems.map(({ id, icon: Icon, label, badge }) => (
+            <button
+              key={id}
+              onClick={() => { setActiveTab(id); setSidebarOpen(false); }}
+              className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors
+                ${activeTab === id
+                  ? "bg-purple-600/20 text-purple-300 font-semibold"
+                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                }`}
+            >
+              <Icon className="w-4 h-4 flex-shrink-0" />
+              <span className="flex-1 text-left">{label}</span>
+              {badge !== undefined && (
+                <Badge className="bg-purple-600 text-white text-xs px-1.5">{badge}</Badge>
+              )}
+            </button>
+          ))}
+        </nav>
+
+        {/* User + signout */}
+        <div className="p-3 border-t border-border">
+          <p className="text-xs text-muted-foreground truncate mb-2">{user.email}</p>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="w-full justify-start gap-2 text-red-400 hover:text-red-300 hover:bg-red-500/10"
+            onClick={() => { signOut(); navigate("/"); }}
+          >
+            <LogOut className="w-4 h-4" /> Cerrar sesión
+          </Button>
+        </div>
       </aside>
 
-      {/* Sidebar mobile */}
-      <AnimatePresence>
-        {sideOpen && (
-          <>
-            <motion.div className="fixed inset-0 bg-black/50 z-40 md:hidden" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setSideOpen(false)} />
-            <motion.aside className="fixed left-0 top-0 h-full w-72 bg-card border-r border-border z-50 md:hidden flex flex-col" initial={{ x: -300 }} animate={{ x: 0 }} exit={{ x: -300 }} transition={{ type: "spring", stiffness: 300, damping: 30 }}>
-              <div className="flex justify-end p-3 border-b border-border">
-                <button onClick={() => setSideOpen(false)} className="cursor-pointer text-muted-foreground hover:text-foreground"><X className="w-5 h-5" /></button>
-              </div>
-              <Sidebar />
-            </motion.aside>
-          </>
-        )}
-      </AnimatePresence>
+      {/* Overlay for mobile */}
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 z-40 bg-black/50 lg:hidden"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
 
-      {/* Main */}
-      <main className="flex-1 flex flex-col overflow-hidden">
-        {/* Topbar */}
-        <header className="flex items-center justify-between px-4 py-3 border-b border-border bg-card/30 shrink-0">
-          <div className="flex items-center gap-3">
-            <button onClick={() => setSideOpen(true)} className="md:hidden cursor-pointer text-muted-foreground hover:text-foreground"><Menu className="w-5 h-5" /></button>
-            <h1 className="font-semibold text-sm">{TABS.find(t => t.id === tab)?.label}</h1>
-          </div>
-          <Badge variant="outline" className="text-[10px] text-violet-400 border-violet-500/30">ADMIN</Badge>
+      {/* ── Main ── */}
+      <main className="flex-1 flex flex-col min-h-screen">
+        {/* Top bar */}
+        <header className="sticky top-0 z-30 bg-card/80 backdrop-blur border-b border-border px-4 py-3 flex items-center gap-3">
+          <button
+            className="lg:hidden text-muted-foreground"
+            onClick={() => setSidebarOpen(true)}
+          >
+            <Menu className="w-5 h-5" />
+          </button>
+          <h1 className="font-bold text-foreground capitalize">{activeTab}</h1>
+          <button
+            className="ml-auto text-muted-foreground hover:text-foreground"
+            onClick={loadData}
+            title="Refrescar datos"
+          >
+            <RefreshCw className="w-4 h-4" />
+          </button>
         </header>
 
-        <div className="flex-1 overflow-y-auto p-4 space-y-6">
+        {/* Toast */}
+        {approvedNote && (
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mx-4 mt-4 p-3 bg-green-600/20 border border-green-500/40 rounded-lg text-green-300 text-sm"
+          >
+            {approvedNote}
+          </motion.div>
+        )}
 
-          {/* ── DASHBOARD FINANCIERO ── */}
-          {tab === "finance" && (
-            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
+        <div className="flex-1 p-4 space-y-6 max-w-6xl mx-auto w-full">
 
-              {/* KPIs */}
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-                {[
-                  { label: "Ingresos Totales", value: `${totalIncome.toFixed(2)}€`, icon: DollarSign, color: "text-emerald-400" },
-                  { label: "Retirado", value: `${totalWithdrawn.toFixed(2)}€`, icon: Wallet, color: "text-violet-400" },
-                  { label: "Saldo Disponible", value: `${balance.toFixed(2)}€`, icon: TrendingUp, color: "text-cyan-400" },
-                ].map(k => (
-                  <Card key={k.label} className="bg-card/60 border-border">
-                    <CardContent className="p-4">
-                      <div className={`${k.color} mb-1`}><k.icon className="w-5 h-5" /></div>
-                      <p className="text-2xl font-bold">{k.value}</p>
-                      <p className="text-xs text-muted-foreground mt-0.5">{k.label}</p>
+          {/* ════════════════════════════════════
+              TAB: Dashboard de ingresos
+          ════════════════════════════════════ */}
+          {activeTab === "dashboard" && (
+            <motion.div
+              key="dashboard"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="space-y-5"
+            >
+              <h2 className="text-lg font-semibold text-foreground">Dashboard de Ingresos</h2>
+
+              {/* KPI cards */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <StatCard icon={Euro} label="Ingresos este mes" value={`€${totalMonth}`} sub={`${MONTHS[currentMonthIdx]} 2026`} color="bg-purple-600/20" />
+                <StatCard icon={DollarSign} label="AdMob (mes)" value={`€${admobMonth}`} sub="Publicidad" color="bg-blue-600/20" />
+                <StatCard icon={ShoppingCart} label="Amazon (mes)" value={`€${amazonMonth}`} sub="Afiliados" color="bg-orange-600/20" />
+                <StatCard icon={TrendingUp} label="Total acumulado" value={`€${totalRevenue}`} sub="Todo el año" color="bg-green-600/20" />
+              </div>
+
+              {/* Bar chart */}
+              <Card className="bg-card border-border">
+                <CardHeader className="pb-0">
+                  <CardTitle className="text-sm font-medium text-muted-foreground">
+                    Ingresos mensuales 2026 (€)
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <BarChart admob={ADMOB_DATA} amazon={AMAZON_DATA} months={MONTHS} />
+                </CardContent>
+              </Card>
+
+              {/* Breakdown */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <Card className="bg-card border-border">
+                  <CardHeader>
+                    <CardTitle className="text-sm text-muted-foreground flex items-center gap-2">
+                      <DollarSign className="w-4 h-4 text-blue-400" /> AdMob — Desglose mensual
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-2">
+                    {MONTHS.slice(0, currentMonthIdx + 1).reverse().slice(0, 4).map((m, i) => {
+                      const idx = currentMonthIdx - i;
+                      return (
+                        <div key={m} className="flex justify-between text-sm">
+                          <span className="text-muted-foreground">{m}</span>
+                          <span className="text-foreground font-medium">€{ADMOB_DATA[idx]}</span>
+                        </div>
+                      );
+                    })}
+                  </CardContent>
+                </Card>
+
+                <Card className="bg-card border-border">
+                  <CardHeader>
+                    <CardTitle className="text-sm text-muted-foreground flex items-center gap-2">
+                      <ShoppingCart className="w-4 h-4 text-orange-400" /> Amazon — Desglose mensual
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-2">
+                    {MONTHS.slice(0, currentMonthIdx + 1).reverse().slice(0, 4).map((m, i) => {
+                      const idx = currentMonthIdx - i;
+                      return (
+                        <div key={m} className="flex justify-between text-sm">
+                          <span className="text-muted-foreground">{m}</span>
+                          <span className="text-foreground font-medium">€{AMAZON_DATA[idx]}</span>
+                        </div>
+                      );
+                    })}
+                  </CardContent>
+                </Card>
+              </div>
+            </motion.div>
+          )}
+
+          {/* ════════════════════════════════════
+              TAB: Gestión de usuarios
+          ════════════════════════════════════ */}
+          {activeTab === "users" && (
+            <motion.div
+              key="users"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="space-y-4"
+            >
+              <h2 className="text-lg font-semibold text-foreground">Gestión de Usuarios</h2>
+              <p className="text-sm text-muted-foreground">
+                {users.length} usuarios registrados · {bannedCount} baneados
+              </p>
+
+              <div className="space-y-3">
+                {users.length === 0 && (
+                  <Card className="bg-card border-border">
+                    <CardContent className="py-8 text-center text-muted-foreground text-sm">
+                      No hay usuarios registrados aún.
+                    </CardContent>
+                  </Card>
+                )}
+                {users.map((u) => (
+                  <Card
+                    key={u.id}
+                    className={`bg-card border-border transition-colors ${u.banned ? "opacity-60 border-red-500/30" : ""}`}
+                  >
+                    <CardContent className="p-4 flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-full bg-purple-600/20 flex items-center justify-center text-purple-400 font-bold text-sm flex-shrink-0">
+                        {u.name.charAt(0).toUpperCase()}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-foreground text-sm">{u.name}</p>
+                        <p className="text-xs text-muted-foreground truncate">{u.email}</p>
+                        <div className="flex gap-2 mt-1">
+                          <Badge variant="outline" className="text-[10px] px-1.5">
+                            {u.credits} créditos
+                          </Badge>
+                          {u.createdAt && (
+                            <Badge variant="outline" className="text-[10px] px-1.5">
+                              {u.createdAt}
+                            </Badge>
+                          )}
+                          {u.banned && (
+                            <Badge className="text-[10px] px-1.5 bg-red-600/20 text-red-400 border-red-500/30">
+                              Baneado
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => toggleBan(u.id)}
+                        className={u.banned
+                          ? "text-green-400 hover:text-green-300 hover:bg-green-500/10"
+                          : "text-red-400 hover:text-red-300 hover:bg-red-500/10"
+                        }
+                      >
+                        <Ban className="w-4 h-4 mr-1" />
+                        {u.banned ? "Desbanear" : "Banear"}
+                      </Button>
                     </CardContent>
                   </Card>
                 ))}
               </div>
-
-              {/* Añadir ingreso manual */}
-              <Card className="bg-card/60 border-border">
-                <CardHeader className="pb-3"><CardTitle className="text-sm flex items-center gap-2"><PlusCircle className="w-4 h-4 text-emerald-400" /> Registrar Ingreso Real</CardTitle></CardHeader>
-                <CardContent className="space-y-3">
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="text-xs text-muted-foreground mb-1 block">Fuente</label>
-                      <select value={newEntry.source} onChange={e => setNewEntry(p => ({ ...p, source: e.target.value }))}
-                        className="w-full bg-background border border-input rounded-lg px-3 py-2 text-sm focus:outline-none">
-                        <option value="">Seleccionar...</option>
-                        <option>AdMob</option>
-                        <option>Amazon Afiliados</option>
-                        <option>Suscripciones</option>
-                        <option>Otro</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label className="text-xs text-muted-foreground mb-1 block">Importe (€)</label>
-                      <input type="number" min="0" step="0.01" placeholder="0.00" value={newEntry.amount}
-                        onChange={e => setNewEntry(p => ({ ...p, amount: e.target.value }))}
-                        className="w-full bg-background border border-input rounded-lg px-3 py-2 text-sm focus:outline-none" />
-                    </div>
-                  </div>
-                  <input placeholder="Nota opcional" value={newEntry.note}
-                    onChange={e => setNewEntry(p => ({ ...p, note: e.target.value }))}
-                    className="w-full bg-background border border-input rounded-lg px-3 py-2 text-sm focus:outline-none" />
-                  <Button onClick={addEntry} size="sm" className="cursor-pointer bg-emerald-600 hover:bg-emerald-700">
-                    <PlusCircle className="w-3 h-3 mr-1" /> Añadir
-                  </Button>
-                </CardContent>
-              </Card>
-
-              {/* Historial */}
-              <Card className="bg-card/60 border-border">
-                <CardHeader className="pb-3"><CardTitle className="text-sm">Historial de Ingresos</CardTitle></CardHeader>
-                <CardContent className="space-y-2">
-                  {finance.length === 0 && <p className="text-xs text-muted-foreground">Sin ingresos registrados aún.</p>}
-                  {finance.map((e, i) => (
-                    <div key={i} className="flex items-center justify-between py-2 border-b border-border last:border-0">
-                      <div>
-                        <p className="text-sm font-medium">{e.source}</p>
-                        <p className="text-xs text-muted-foreground">{e.note} · {new Date(e.date).toLocaleDateString("es-ES")}</p>
-                      </div>
-                      <span className={`text-sm font-bold ${e.amount > 0 ? "text-emerald-400" : "text-muted-foreground"}`}>
-                        +{e.amount.toFixed(2)}€
-                      </span>
-                    </div>
-                  ))}
-                </CardContent>
-              </Card>
             </motion.div>
           )}
 
-          {/* ── SUPERAGENTE FINANCIERO ── */}
-          {tab === "superagent" && (
-            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-4">
+          {/* ════════════════════════════════════
+              TAB: Gestión de apps
+          ════════════════════════════════════ */}
+          {activeTab === "apps" && (
+            <motion.div
+              key="apps"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="space-y-4"
+            >
+              <h2 className="text-lg font-semibold text-foreground">Gestión de Apps</h2>
+              <p className="text-sm text-muted-foreground">
+                {apps.length} apps generadas en total
+              </p>
 
-              <Card className="bg-card/60 border-border">
-                <CardContent className="p-4">
-                  <p className="text-xs text-muted-foreground leading-relaxed">
-                    🧠 <strong>SuperAgente Financiero</strong> — Analiza mercados, propone inversiones con % de confianza.
-                    Tú apruebas antes de invertir. Balance actual: <span className="text-emerald-400 font-bold">{balance.toFixed(2)}€</span>
-                  </p>
-                </CardContent>
-              </Card>
-
-              {/* Selector de modelo */}
-              <div className="flex flex-wrap gap-2">
-                {AGENT_MODELS.map(m => (
-                  <button key={m.id} onClick={() => setAgentModel(m.id)}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all cursor-pointer ${m.color} ${agentModel === m.id ? "ring-2 ring-white/30 opacity-100" : "opacity-40 hover:opacity-70"}`}>
-                    <Cpu className="w-3 h-3 inline mr-1" />{m.label}
-                  </button>
+              <div className="space-y-3">
+                {apps.length === 0 && (
+                  <Card className="bg-card border-border">
+                    <CardContent className="py-8 text-center text-muted-foreground text-sm">
+                      No hay apps generadas todavía.
+                    </CardContent>
+                  </Card>
+                )}
+                {apps.map((app) => (
+                  <Card key={app.id} className="bg-card border-border">
+                    <CardContent className="p-4 flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-lg bg-blue-600/20 flex items-center justify-center flex-shrink-0">
+                        <Bot className="w-5 h-5 text-blue-400" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-foreground text-sm">{app.name}</p>
+                        <p className="text-xs text-muted-foreground truncate">
+                          {app.userEmail ?? app.userId}
+                        </p>
+                        <div className="flex gap-2 mt-1">
+                          {app.platform && (
+                            <Badge variant="outline" className="text-[10px] px-1.5">
+                              {app.platform}
+                            </Badge>
+                          )}
+                          {app.status && (
+                            <Badge className="text-[10px] px-1.5 bg-green-600/20 text-green-400 border-green-500/30">
+                              {app.status}
+                            </Badge>
+                          )}
+                          <Badge variant="outline" className="text-[10px] px-1.5 text-muted-foreground">
+                            {app.createdAt}
+                          </Badge>
+                        </div>
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => deleteApp(app.id)}
+                        className="text-red-400 hover:text-red-300 hover:bg-red-500/10"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </CardContent>
+                  </Card>
                 ))}
               </div>
-
-              {/* Chat */}
-              <Card className="bg-card/60 border-border">
-                <CardContent className="p-4 space-y-3">
-                  <div className="min-h-[200px] max-h-[400px] overflow-y-auto space-y-3 pr-1">
-                    {agentMessages.length === 0 && (
-                      <div className="space-y-2">
-                        {["¿Dónde invertir 50€ ahora mismo?", "Analiza Bitcoin vs ETF S&P500", "Dame 3 opciones para 100€ con riesgo bajo"].map(s => (
-                          <button key={s} onClick={() => setAgentInput(s)}
-                            className="w-full text-left px-3 py-2 rounded-lg bg-secondary/30 hover:bg-secondary/60 text-xs text-muted-foreground transition-colors cursor-pointer">
-                            💡 {s}
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                    {agentMessages.map((m, i) => (
-                      <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
-                        <div className={`max-w-[85%] px-3 py-2 rounded-xl text-xs leading-relaxed whitespace-pre-wrap ${m.role === "user" ? "bg-violet-600 text-white" : "bg-secondary/60 text-foreground"}`}>
-                          {m.content}
-                        </div>
-                      </div>
-                    ))}
-                    {agentLoading && (
-                      <div className="flex justify-start">
-                        <div className="bg-secondary/60 px-3 py-2 rounded-xl text-xs flex items-center gap-2">
-                          <Loader2 className="w-3 h-3 animate-spin text-violet-400" /> Analizando mercados...
-                        </div>
-                      </div>
-                    )}
-                    <div ref={agentBottomRef} />
-                  </div>
-                  <div className="flex gap-2 pt-2 border-t border-border">
-                    <input
-                      value={agentInput}
-                      onChange={e => setAgentInput(e.target.value)}
-                      onKeyDown={e => e.key === "Enter" && !e.shiftKey && sendAgent()}
-                      placeholder="Pídeme lo que quieras..."
-                      className="flex-1 bg-background border border-input rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-violet-500"
-                    />
-                    <Button onClick={sendAgent} disabled={agentLoading || !agentInput.trim()} size="sm" className="cursor-pointer bg-violet-600 hover:bg-violet-700 shrink-0">
-                      {agentLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
             </motion.div>
           )}
 
-          {/* ── CARTERA ── */}
-          {tab === "portfolio" && (
-            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
+          {/* ════════════════════════════════════
+              TAB: Solicitudes de retiro
+          ════════════════════════════════════ */}
+          {activeTab === "withdrawals" && (
+            <motion.div
+              key="withdrawals"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="space-y-4"
+            >
+              <h2 className="text-lg font-semibold text-foreground">Solicitudes de Retiro</h2>
+              <p className="text-sm text-muted-foreground">
+                {pendingCount} pendientes · PayPal de admin: {PAYPAL_EMAIL}
+              </p>
 
-              {/* KPI cartera */}
-              <div className="grid grid-cols-2 gap-4">
-                <Card className="bg-card/60 border-border">
-                  <CardContent className="p-4">
-                    <p className="text-xs text-muted-foreground">Invertido Total</p>
-                    <p className="text-2xl font-bold text-violet-400">
-                      {portfolio.filter(i => i.status === "active").reduce((s, i) => s + i.amount, 0).toFixed(2)}€
-                    </p>
-                  </CardContent>
-                </Card>
-                <Card className="bg-card/60 border-border">
-                  <CardContent className="p-4">
-                    <p className="text-xs text-muted-foreground">ROI Promedio</p>
-                    <p className="text-2xl font-bold text-emerald-400">
-                      {portfolio.length > 0
-                        ? (portfolio.reduce((s, i) => s + i.roi, 0) / portfolio.length).toFixed(1)
-                        : "0.0"}%
-                    </p>
-                  </CardContent>
-                </Card>
+              <div className="space-y-3">
+                {withdrawals.length === 0 && (
+                  <Card className="bg-card border-border">
+                    <CardContent className="py-8 text-center text-muted-foreground text-sm">
+                      No hay solicitudes de retiro.
+                    </CardContent>
+                  </Card>
+                )}
+                {withdrawals.map((w) => (
+                  <Card
+                    key={w.id}
+                    className={`bg-card border-border ${
+                      w.status === "approved"
+                        ? "border-green-500/30"
+                        : w.status === "rejected"
+                        ? "border-red-500/30 opacity-60"
+                        : ""
+                    }`}
+                  >
+                    <CardContent className="p-4">
+                      <div className="flex items-start gap-3">
+                        <div className="w-9 h-9 rounded-lg bg-yellow-600/20 flex items-center justify-center flex-shrink-0">
+                          <Wallet className="w-5 h-5 text-yellow-400" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <p className="font-bold text-foreground">€{w.amount.toFixed(2)}</p>
+                            <Badge
+                              className={`text-[10px] px-1.5 ${
+                                w.status === "pending"
+                                  ? "bg-yellow-600/20 text-yellow-400 border-yellow-500/30"
+                                  : w.status === "approved"
+                                  ? "bg-green-600/20 text-green-400 border-green-500/30"
+                                  : "bg-red-600/20 text-red-400 border-red-500/30"
+                              }`}
+                            >
+                              {w.status === "pending" ? "Pendiente" : w.status === "approved" ? "Aprobado" : "Rechazado"}
+                            </Badge>
+                          </div>
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            {w.userEmail ?? w.userId} · {w.createdAt}
+                          </p>
+                          {w.paypalEmail && (
+                            <p className="text-xs text-muted-foreground">PayPal usuario: {w.paypalEmail}</p>
+                          )}
+                          {w.note && (
+                            <p className={`text-xs mt-1 font-medium ${
+                              w.status === "approved" ? "text-green-400" : "text-red-400"
+                            }`}>
+                              {w.note}
+                            </p>
+                          )}
+                        </div>
+
+                        {w.status === "pending" && (
+                          <div className="flex gap-2 flex-shrink-0">
+                            <Button
+                              size="sm"
+                              onClick={() => processWithdrawal(w.id, "approve")}
+                              className="bg-green-600 hover:bg-green-500 text-white h-8 px-3"
+                            >
+                              <Check className="w-3 h-3 mr-1" /> Aprobar
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => processWithdrawal(w.id, "reject")}
+                              className="text-red-400 hover:text-red-300 hover:bg-red-500/10 h-8 px-3"
+                            >
+                              <AlertCircle className="w-3 h-3 mr-1" /> Rechazar
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </motion.div>
+          )}
+
+          {/* ════════════════════════════════════
+              TAB: Estadísticas
+          ════════════════════════════════════ */}
+          {activeTab === "stats" && (
+            <motion.div
+              key="stats"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="space-y-5"
+            >
+              <h2 className="text-lg font-semibold text-foreground">Estadísticas Globales</h2>
+
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                <StatCard icon={Bot} label="Total apps generadas" value={apps.length} color="bg-blue-600/20" />
+                <StatCard icon={Users} label="Total usuarios" value={users.length} sub={`${bannedCount} baneados`} color="bg-purple-600/20" />
+                <StatCard icon={Euro} label="Ingresos del mes" value={`€${totalMonth}`} sub={MONTHS[currentMonthIdx]} color="bg-green-600/20" />
+                <StatCard icon={CreditCard} label="Retiros pendientes" value={pendingCount} color="bg-yellow-600/20" />
+                <StatCard icon={TrendingUp} label="Total ingresos año" value={`€${totalRevenue}`} color="bg-orange-600/20" />
+                <StatCard icon={Activity} label="Retiros aprobados" value={withdrawals.filter(w => w.status === "approved").length} color="bg-green-600/20" />
               </div>
 
-              {/* Añadir inversión */}
-              <Card className="bg-card/60 border-border">
-                <CardHeader className="pb-3"><CardTitle className="text-sm flex items-center gap-2"><PlusCircle className="w-4 h-4 text-violet-400" /> Nueva Inversión</CardTitle></CardHeader>
-                <CardContent className="space-y-3">
-                  <div className="grid grid-cols-2 gap-3">
-                    <input placeholder="Nombre (ej: Bitcoin, VOO...)" value={newInv.name}
-                      onChange={e => setNewInv(p => ({ ...p, name: e.target.value }))}
-                      className="w-full bg-background border border-input rounded-lg px-3 py-2 text-sm focus:outline-none" />
-                    <select value={newInv.type} onChange={e => setNewInv(p => ({ ...p, type: e.target.value }))}
-                      className="w-full bg-background border border-input rounded-lg px-3 py-2 text-sm focus:outline-none">
-                      <option>ETF</option><option>Cripto</option><option>Acción</option><option>REIT</option><option>Otro</option>
-                    </select>
-                    <input type="number" placeholder="Importe (€)" value={newInv.amount}
-                      onChange={e => setNewInv(p => ({ ...p, amount: e.target.value }))}
-                      className="w-full bg-background border border-input rounded-lg px-3 py-2 text-sm focus:outline-none" />
-                    <input type="number" placeholder="ROI actual (%)" value={newInv.roi}
-                      onChange={e => setNewInv(p => ({ ...p, roi: e.target.value }))}
-                      className="w-full bg-background border border-input rounded-lg px-3 py-2 text-sm focus:outline-none" />
-                  </div>
-                  <Button onClick={addInvestment} size="sm" className="cursor-pointer bg-violet-600 hover:bg-violet-700">
-                    <PlusCircle className="w-3 h-3 mr-1" /> Añadir a cartera
-                  </Button>
-                </CardContent>
-              </Card>
-
-              {/* Lista inversiones */}
-              <Card className="bg-card/60 border-border">
-                <CardHeader className="pb-3"><CardTitle className="text-sm">Inversiones Activas</CardTitle></CardHeader>
+              {/* Apps por usuario */}
+              <Card className="bg-card border-border">
+                <CardHeader>
+                  <CardTitle className="text-sm text-muted-foreground">Apps por usuario</CardTitle>
+                </CardHeader>
                 <CardContent className="space-y-2">
-                  {portfolio.length === 0 && <p className="text-xs text-muted-foreground">Sin inversiones registradas. Pregunta al SuperAgente para empezar.</p>}
-                  {portfolio.map(inv => (
-                    <div key={inv.id} className="flex items-center justify-between py-2 border-b border-border last:border-0 gap-2">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <p className="text-sm font-medium truncate">{inv.name}</p>
-                          <Badge variant="outline" className="text-[9px] shrink-0">{inv.type}</Badge>
+                  {users.length === 0 && (
+                    <p className="text-sm text-muted-foreground">Sin datos</p>
+                  )}
+                  {users.map((u) => {
+                    const count = apps.filter((a) => a.userId === u.id).length;
+                    const pct = apps.length > 0 ? Math.round((count / apps.length) * 100) : 0;
+                    return (
+                      <div key={u.id} className="space-y-1">
+                        <div className="flex justify-between text-xs">
+                          <span className="text-foreground">{u.name}</span>
+                          <span className="text-muted-foreground">{count} apps ({pct}%)</span>
                         </div>
-                        <p className="text-xs text-muted-foreground">{new Date(inv.date).toLocaleDateString("es-ES")}</p>
+                        <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+                          <div
+                            className="h-full bg-purple-500 rounded-full transition-all duration-700"
+                            style={{ width: `${pct}%` }}
+                          />
+                        </div>
                       </div>
-                      <div className="text-right shrink-0">
-                        <p className="text-sm font-bold text-violet-400">{inv.amount.toFixed(2)}€</p>
-                        <p className={`text-xs font-medium ${inv.roi >= 0 ? "text-emerald-400" : "text-red-400"}`}>{inv.roi >= 0 ? "+" : ""}{inv.roi.toFixed(1)}%</p>
-                      </div>
-                      <button onClick={() => deleteInvestment(inv.id)} className="cursor-pointer text-muted-foreground hover:text-red-400 transition-colors ml-2">
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                  ))}
-                </CardContent>
-              </Card>
-            </motion.div>
-          )}
-
-          {/* ── RETIROS ── */}
-          {tab === "withdrawals" && (
-            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
-
-              <Card className="bg-card/60 border-border">
-                <CardContent className="p-4">
-                  <p className="text-xs text-muted-foreground mb-1">Saldo disponible para retirar</p>
-                  <p className="text-3xl font-bold text-emerald-400">{balance.toFixed(2)}€</p>
-                  <p className="text-[10px] text-muted-foreground mt-1">PayPal: <span className="text-foreground">joanlazaro83@gmail.com</span></p>
+                    );
+                  })}
                 </CardContent>
               </Card>
 
-              <Card className="bg-card/60 border-border">
-                <CardHeader className="pb-3"><CardTitle className="text-sm flex items-center gap-2"><Wallet className="w-4 h-4 text-emerald-400" /> Solicitar Retiro</CardTitle></CardHeader>
+              {/* Income split */}
+              <Card className="bg-card border-border">
+                <CardHeader>
+                  <CardTitle className="text-sm text-muted-foreground">Fuentes de ingresos (acumulado)</CardTitle>
+                </CardHeader>
                 <CardContent className="space-y-3">
-                  <input type="number" min="1" step="0.01" max={balance}
-                    placeholder={`Máx. ${balance.toFixed(2)}€`} value={withdrawAmount}
-                    onChange={e => setWithdrawAmount(e.target.value)}
-                    className="w-full bg-background border border-input rounded-lg px-3 py-2 text-sm focus:outline-none" />
-                  <div className="flex gap-2">
-                    {[10, 25, 50].map(amt => (
-                      <button key={amt} onClick={() => setWithdrawAmount(Math.min(amt, balance).toString())}
-                        className="px-3 py-1 rounded-lg bg-secondary/40 hover:bg-secondary/70 text-xs cursor-pointer transition-colors">
-                        {amt}€
-                      </button>
-                    ))}
-                    <button onClick={() => setWithdrawAmount(balance.toFixed(2))}
-                      className="px-3 py-1 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/40 text-emerald-400 text-xs cursor-pointer transition-colors">
-                      Todo
-                    </button>
-                  </div>
-                  <Button onClick={requestWithdrawal} disabled={!withdrawAmount || parseFloat(withdrawAmount) <= 0 || parseFloat(withdrawAmount) > balance}
-                    size="sm" className="cursor-pointer bg-emerald-600 hover:bg-emerald-700 w-full">
-                    <Wallet className="w-3 h-3 mr-1" /> Solicitar retiro a PayPal
-                  </Button>
-                  <p className="text-[10px] text-muted-foreground">Los retiros se procesan manualmente en 24-48h.</p>
-                </CardContent>
-              </Card>
-
-              {/* Historial retiros */}
-              <Card className="bg-card/60 border-border">
-                <CardHeader className="pb-3"><CardTitle className="text-sm">Historial de Retiros</CardTitle></CardHeader>
-                <CardContent className="space-y-2">
-                  {withdrawals.length === 0 && <p className="text-xs text-muted-foreground">Sin retiros realizados aún.</p>}
-                  {withdrawals.map(w => (
-                    <div key={w.id} className="flex items-center justify-between py-2 border-b border-border last:border-0">
-                      <div>
-                        <p className="text-sm font-medium">{w.amount.toFixed(2)}€ → PayPal</p>
-                        <p className="text-xs text-muted-foreground">{new Date(w.date).toLocaleDateString("es-ES")}</p>
+                  {[
+                    { label: "AdMob (publicidad)", value: ADMOB_DATA.reduce((a, b) => a + b, 0), color: "bg-purple-500" },
+                    { label: "Amazon (afiliados)", value: AMAZON_DATA.reduce((a, b) => a + b, 0), color: "bg-orange-500" },
+                  ].map(({ label, value, color }) => (
+                    <div key={label} className="space-y-1">
+                      <div className="flex justify-between text-xs">
+                        <span className="text-foreground">{label}</span>
+                        <span className="text-muted-foreground">€{value} ({Math.round((value / totalRevenue) * 100)}%)</span>
                       </div>
-                      <Badge className={`text-[10px] ${w.status === "sent" ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30" : w.status === "pending" ? "bg-yellow-500/20 text-yellow-400 border-yellow-500/30" : "bg-red-500/20 text-red-400 border-red-500/30"}`}>
-                        {w.status === "sent" ? "✓ Enviado" : w.status === "pending" ? "⏳ Pendiente" : "✗ Fallido"}
-                      </Badge>
-                    </div>
-                  ))}
-                </CardContent>
-              </Card>
-            </motion.div>
-          )}
-
-          {/* ── CONFIG ── */}
-          {tab === "config" && (
-            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
-
-              {[
-                { section: "AdMob", color: "text-yellow-400", fields: [
-                  { key: "admob_app_id",              label: "App ID",                  placeholder: "ca-app-pub-4903263409458961~5751005760" },
-                  { key: "admob_banner_id",            label: "Banner",                  placeholder: "ca-app-pub-4903263409458961/8825147276" },
-                  { key: "admob_interstitial_id",      label: "Intersticial",            placeholder: "ca-app-pub-4903263409458961/4622591073" },
-                  { key: "admob_interstitial_reward_id", label: "Intersticial Bonificado", placeholder: "ca-app-pub-4903263409458961/1824624651" },
-                  { key: "admob_appopen_id",           label: "Carga de App",            placeholder: "ca-app-pub-4903263409458961/8054991080" },
-                  { key: "admob_rewarded_id",          label: "Bonificado",              placeholder: "ca-app-pub-4903263409458961/3980014703" },
-                  { key: "admob_native_id",            label: "Nativo Avanzado",         placeholder: "ca-app-pub-4903263409458961/2202908920" },
-                ]},
-                { section: "Amazon Afiliados", color: "text-orange-400", fields: [
-                  { key: "amazon_tracking_id", label: "Tracking ID", placeholder: "r3dm01-21" },
-                ]},
-                { section: "FreeLLM / Groq", color: "text-violet-400", fields: [
-                  { key: "freellm_key", label: "FreeLLM API Key", placeholder: "free" },
-                  { key: "groq_key", label: "Groq API Key", placeholder: "gsk_..." },
-                ]},
-                { section: "PayPal (Retiros)", color: "text-cyan-400", fields: [
-                  { key: "paypal_email", label: "Email PayPal", placeholder: "joanlazaro83@gmail.com" },
-                ]},
-              ].map(({ section, color, fields }) => (
-                <Card key={section} className="bg-card/60 border-border">
-                  <CardHeader className="pb-3">
-                    <CardTitle className={`text-sm flex items-center gap-2 ${color}`}>
-                      <Settings className="w-4 h-4" /> {section}
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-3">
-                    {fields.map(f => (
-                      <div key={f.key}>
-                        <label className="text-xs text-muted-foreground mb-1 block">{f.label}</label>
-                        <input
-                          value={(config as Record<string, string>)[f.key] ?? ""}
-                          onChange={e => setConfig(p => ({ ...p, [f.key]: e.target.value }))}
-                          placeholder={f.placeholder}
-                          className="w-full bg-background border border-input rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-1 focus:ring-ring"
+                      <div className="h-2 bg-muted rounded-full overflow-hidden">
+                        <div
+                          className={`h-full ${color} rounded-full transition-all duration-700`}
+                          style={{ width: `${Math.round((value / totalRevenue) * 100)}%` }}
                         />
                       </div>
-                    ))}
-                  </CardContent>
-                </Card>
-              ))}
-
-              <Button onClick={saveConfig} className="cursor-pointer bg-violet-600 hover:bg-violet-700 w-full">
-                <CheckCircle className="w-4 h-4 mr-2" /> Guardar configuración
-              </Button>
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
             </motion.div>
           )}
 
