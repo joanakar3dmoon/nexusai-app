@@ -1,21 +1,52 @@
 {
-  "name": "NexusAI",
+  "name": "NexusAI — Crea Apps con IA",
   "short_name": "NexusAI",
-  "description": "Superagentes IA que generan ingresos",
+  "description": "Crea tu propia app con IA en minutos. Playground con 5 modelos IA, generador de apps, agentes y monetización. Gratis.",
   "start_url": "/nexusai-app/",
+  "scope": "/nexusai-app/",
   "display": "standalone",
-  "background_color": "#0a0a0f",
-  "theme_color": "#0a0a0f",
+  "orientation": "portrait-primary",
+  "background_color": "#080b14",
+  "theme_color": "#7c3aed",
+  "lang": "es",
+  "categories": ["productivity", "utilities", "developer"],
   "icons": [
     {
       "src": "/nexusai-app/icon-192.png",
       "sizes": "192x192",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any maskable"
     },
     {
       "src": "/nexusai-app/icon-512.png",
       "sizes": "512x512",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "/nexusai-app/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "NexusAI Dashboard"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Playground IA",
+      "short_name": "Playground",
+      "description": "Abre el Playground con 5 modelos de IA",
+      "url": "/nexusai-app/dashboard",
+      "icons": [{ "src": "/nexusai-app/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Panel Admin",
+      "short_name": "Admin",
+      "description": "Panel de administración",
+      "url": "/nexusai-app/admin",
+      "icons": [{ "src": "/nexusai-app/icon-192.png", "sizes": "192x192" }]
     }
   ]
 }
