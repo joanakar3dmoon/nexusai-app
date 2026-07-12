@@ -50,9 +50,19 @@ async function groq(system: string, user: string, maxTokens = 8000): Promise<str
 
 // ─── extrae HTML limpio de la respuesta ─────────────────────
 function extractHTML(raw: string): string {
-  const m = raw.match(/<!DOCTYPE[\s\S]*?<\/html>/i) ?? raw.match(/<html[\s\S]*?<\/html>/i);
-  if (m) return m[0];
-  return raw.replace(/^```html?\n?/i, "").replace(/\n?```\s*$/i, "").trim();
+  // Greedy: coge desde el primer DOCTYPE/html hasta el último </html>
+  const m = raw.match(/<!DOCTYPE\s+html[\s\S]*/i) ?? raw.match(/<html[\s\S]*/i);
+  if (m) {
+    // Corta justo después del </html> final
+    const block = m[0];
+    const endIdx = block.toLowerCase().lastIndexOf("</html>");
+    return endIdx >= 0 ? block.slice(0, endIdx + 7) : block;
+  }
+  // Quita fences de markdown
+  return raw
+    .replace(/^[\s\S]*?```html?\n/i, "")
+    .replace(/\n?```[\s\S]*$/i, "")
+    .trim();
 }
 
 // ─── fallback HTML mínimo ────────────────────────────────────
