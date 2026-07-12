@@ -1,5 +1,9 @@
-// Auth standalone — funciona sin backend, todo en localStorage
+// ============================================================
+// Auth REAL — conecta con backend FastAPI
+// ============================================================
+
 import { createContext, useContext, useState, useEffect, type ReactNode } from "react";
+import api from "./nexus-api";
 
 export interface User {
   id: string;
@@ -26,30 +30,62 @@ const AuthContext = createContext<AuthContextType>({
   refreshUser: async () => {},
 });
 
-const ADMIN_EMAIL = "joanlazaro83@gmail.com";
-
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
 
+  // Restaurar sesión al cargar
   useEffect(() => {
     const stored = localStorage.getItem("nexusai_user");
     if (stored) {
-      try { setUser(JSON.parse(stored)); } catch {}
+      try {
+        const parsed = JSON.parse(stored);
+        setUser(parsed);
+        // Refrescar datos desde backend en 2º plano
+        api.getUser(parsed.id).then((u) => {
+          if (u) {
+            setUser(u);
+            localStorage.setItem("nexusai_user", JSON.stringify(u));
+          }
+        }).catch(() => {});
+      } catch {}
     }
   }, []);
 
-  const signIn = async (email: string, _password: string) => {
-    const u: User = {
-      id: btoa(email),
-      email,
-      name: email.split("@")[0],
-      role: email === ADMIN_EMAIL ? "admin" : "user",
-      credits: 100,
-      balance: 0,
-    };
-    setUser(u);
-    localStorage.setItem("nexusai_user", JSON.stringify(u));
-    return true;
+  const signIn = async (email: string, password: string) => {
+    try {
+      // Admin local sin backend — acceso directo para el propietario
+      const ADMIN_EMAIL = "joanlazaro83@gmail.com";
+      const ADMIN_PASS  = "r3dm/Joan83";
+      if (email === ADMIN_EMAIL && password === ADMIN_PASS) {
+        const adminUser: User = {
+          id: "admin-joan",
+          email: ADMIN_EMAIL,
+          name: "Joan R3DMOON",
+          role: "admin",
+          credits: 999999,
+          balance: 0,
+        };
+        setUser(adminUser);
+        localStorage.setItem("nexusai_user", JSON.stringify(adminUser));
+        return true;
+      }
+      // Usuarios normales — backend FastAPI
+      const u = await api.login(email, email.split("@")[0]);
+      const userData: User = {
+        id: u.id,
+        email: u.email,
+        role: u.role,
+        credits: u.credits,
+        balance: u.balance,
+        name: u.name || email.split("@")[0],
+      };
+      setUser(userData);
+      localStorage.setItem("nexusai_user", JSON.stringify(userData));
+      return true;
+    } catch (e) {
+      console.error("Error login:", e);
+      return false;
+    }
   };
 
   const signOut = () => {
@@ -57,16 +93,43 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem("nexusai_user");
   };
 
-  const refreshUser = async () => {};
+  const refreshUser = async () => {
+    if (!user) return;
+    try {
+      const u = await api.getUser(user.id);
+      if (u) {
+        const refreshed: User = {
+          id: u.id,
+          email: u.email,
+          role: u.role,
+          credits: u.credits,
+          balance: u.balance,
+          name: u.name || user.name,
+        };
+        setUser(refreshed);
+        localStorage.setItem("nexusai_user", JSON.stringify(refreshed));
+      }
+    } catch {}
+  };
 
   return (
-    <AuthContext.Provider value={{ user, signIn, signOut, isAdmin: user?.role === "admin", refreshUser }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        signIn,
+        signOut,
+        isAdmin: user?.role === "admin",
+        refreshUser,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );
 }
 
-export function useAuth() { return useContext(AuthContext); }
+export function useAuth() {
+  return useContext(AuthContext);
+}
 
 export function Authenticated({ children }: { children: ReactNode }) {
   const { user } = useAuth();
