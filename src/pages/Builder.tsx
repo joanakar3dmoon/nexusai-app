@@ -35,10 +35,10 @@ async function groq(system: string, user: string, maxTokens = 8000): Promise<str
     body: JSON.stringify({
       model: GROQ_MDL,
       messages: [{ role: "system", content: system }, { role: "user", content: user }],
-      temperature: 0.7,
+      temperature: 0.85,
       max_tokens: maxTokens,
     }),
-    signal: AbortSignal.timeout(60000),
+    signal: AbortSignal.timeout(120000),
   });
   if (!r.ok) {
     const err = await r.text().catch(() => r.statusText);
@@ -230,28 +230,56 @@ export default function Builder() {
       setStep("build", "running");
       addLog("⚡ Generando HTML completo con Groq...");
 
-      const sysPrompt = `Eres un generador experto de apps web.
-Genera un archivo HTML completo y funcional para una app mobile-first con tema oscuro.
-REGLAS ESTRICTAS:
-- Responde SOLO con el HTML. Sin explicaciones. Sin markdown. Sin bloques de código.
-- El HTML debe comenzar exactamente con: <!DOCTYPE html>
-- Incluye TODO inline: CSS en <style>, JS en <script>
-- Dark theme: fondo #0a0a0f, tarjetas #1a1a2e, color primario ${meta.color}
-- Bottom navigation bar con emojis
-- Contenido REAL y funcional (no placeholders genéricos)
-- Responde en español
-- El HTML debe ser una app completa con al menos 3 secciones navegables`;
+      const sysPrompt = `Eres un desarrollador senior experto en crear apps web reales y funcionales con HTML/CSS/JS puro.
+Tu misión: generar una app web COMPLETA, REAL y USABLE que funcione al 100% en un navegador.
 
-      const userMsg = `Crea una app web completa.
-Nombre: ${meta.name}
+REGLAS ABSOLUTAS (NO NEGOCIABLES):
+1. Responde ÚNICAMENTE con el código HTML. CERO texto extra, CERO markdown, CERO explicaciones.
+2. Empieza EXACTAMENTE con: <!DOCTYPE html>
+3. Termina EXACTAMENTE con: </html>
+4. TODO inline: <style> para CSS, <script> para JS. Sin imports externos excepto Google Fonts.
+
+DISEÑO:
+- Mobile-first, dark theme profesional
+- Fondo principal: #0a0a0f, tarjetas: #111128, color acento: ${meta.color}
+- Tipografía: usar Google Fonts (Poppins o Inter) desde fonts.googleapis.com
+- Bordes redondeados (12-16px), sombras suaves, transiciones CSS (0.2s ease)
+- Bottom navigation fija con 4-5 secciones y emojis grandes
+- Header con nombre de la app, avatar/logo emoji y menú
+
+FUNCIONALIDAD REAL (OBLIGATORIA):
+- La app debe tener datos de ejemplo REALES precargados (mínimo 8-10 items)
+- Navegación entre secciones SIN recarga (mostrar/ocultar divs con JS)
+- Al menos 2 formularios o inputs funcionales que hagan algo visible
+- Botones que ejecutan acciones reales (añadir, borrar, buscar, filtrar)
+- localStorage para persistir datos entre recargas
+- Animaciones CSS en hover y al añadir/borrar elementos
+- Contadores, estadísticas o métricas que se actualicen en tiempo real
+
+SECCIONES (mínimo 4):
+- Inicio/Dashboard con tarjetas de resumen y métricas
+- Lista/Explorar con los datos principales y buscador/filtro funcional
+- Añadir/Crear formulario completo con validación
+- Perfil/Ajustes con configuración guardada en localStorage
+
+CALIDAD DE CÓDIGO:
+- Variables CSS (--color-primary, etc.) para theming
+- Funciones JS bien nombradas y organizadas
+- Event listeners correctos, sin inline onclick cuando sea posible
+- Manejo de estados (vacío, cargando, con datos, error)`;
+
+      const userMsg = `Crea una app web REAL y FUNCIONAL.
+Nombre: "${meta.name}"
 Categoría: ${meta.category}
-Color primario: ${meta.color}
-Features a incluir: ${meta.features.join(", ") || "diseño moderno, interactivo"}
-Descripción del usuario: ${prompt.trim()}`;
+Color acento: ${meta.color}
+Features específicas: ${meta.features.join(", ") || "interfaz moderna, datos reales, interactiva"}
+Lo que pidió el usuario: "${prompt.trim()}"
+
+Recuerda: datos de ejemplo REALES, formularios que funcionen, navegación entre secciones. NO placeholders.`;
 
       let finalHtml = "";
       try {
-        const raw = await groq(sysPrompt, userMsg, 8000);
+        const raw = await groq(sysPrompt, userMsg, 32000);
         finalHtml = extractHTML(raw);
         if (!finalHtml.includes("<html")) throw new Error("No HTML en respuesta");
         addLog("✅ HTML generado correctamente");
