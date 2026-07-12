@@ -1,6 +1,6 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { HashRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "./lib/auth";
 import Index from "./pages/Index";
 import Dashboard from "./pages/Dashboard";
@@ -11,14 +11,14 @@ import "./index.css";
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <AuthProvider>
-      <BrowserRouter basename="/nexusai-app">
+      <HashRouter>
         <Routes>
           <Route path="/" element={<Index />} />
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/admin" element={<Admin />} />
           <Route path="/builder" element={<Builder />} />
         </Routes>
-      </BrowserRouter>
+      </HashRouter>
     </AuthProvider>
   </StrictMode>
 );
