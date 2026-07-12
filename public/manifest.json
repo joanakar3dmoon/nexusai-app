@@ -1,7 +1,7 @@
 {
   "name": "NexusAI — Crea Apps con IA",
   "short_name": "NexusAI",
-  "description": "Crea tu propia app con IA en minutos. Playground con 5 modelos IA, generador de apps, agentes y monetización. Gratis.",
+  "description": "Crea tu propia app con IA en minutos. Generador de apps, monetización con AdMob y Amazon. Gratis.",
   "start_url": "/nexusai-app/",
   "scope": "/nexusai-app/",
   "display": "standalone",
@@ -35,17 +35,17 @@
   ],
   "shortcuts": [
     {
-      "name": "Playground IA",
-      "short_name": "Playground",
-      "description": "Abre el Playground con 5 modelos de IA",
-      "url": "/nexusai-app/dashboard",
+      "name": "Generador IA",
+      "short_name": "Generar",
+      "description": "Genera apps con IA en segundos",
+      "url": "/nexusai-app/#/dashboard",
       "icons": [{ "src": "/nexusai-app/icon-192.png", "sizes": "192x192" }]
     },
     {
       "name": "Panel Admin",
       "short_name": "Admin",
       "description": "Panel de administración",
-      "url": "/nexusai-app/admin",
+      "url": "/nexusai-app/#/admin",
       "icons": [{ "src": "/nexusai-app/icon-192.png", "sizes": "192x192" }]
     }
   ]
