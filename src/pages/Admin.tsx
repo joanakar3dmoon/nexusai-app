@@ -1,657 +1,445 @@
+import { useState, useEffect, useCallback } from "react";
 import { motion } from "motion/react";
 import {
-  BrainCircuit, Users, DollarSign, CreditCard, TrendingUp, Settings,
-  LogOut, Menu, X, Download, ChevronRight, Check, AlertCircle,
-  BarChart3, PiggyBank, RefreshCw, ArrowUpRight, Target, Shield,
-  Wallet, Zap, LineChart, Activity, Percent, Euro, Star, Bot,
-  ShoppingCart, Loader2
+  BarChart3, Users, DollarSign, CreditCard, Shield,
+  LogOut, Menu, X, Check, Trash2, Ban,
+  ShoppingCart, Wallet, TrendingUp, Bot, Activity,
+  RefreshCw, AlertCircle,
 } from "lucide-react";
-import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
 import { useAuth } from "@/lib/auth";
 import { useNavigate } from "react-router-dom";
-import api from "@/lib/nexus-api";
 
-type Tab = "dashboard" | "investments" | "withdrawals" | "users" | "config";
+// ---- Tipos ----
+interface StoredUser {
+  id: string;
+  email: string;
+  name: string;
+  credits: number;
+  banned: boolean;
+  created_at: string;
+}
+interface StoredApp {
+  id: string;
+  name: string;
+  description: string;
+  status: string;
+  views: number;
+  downloads: number;
+  revenue: number;
+  created_at: string;
+  user_email?: string;
+}
+interface Withdrawal {
+  id: string;
+  user_email: string;
+  amount: number;
+  status: "pending" | "approved" | "rejected";
+  created_at: string;
+  paypal_email?: string;
+}
+
+type TabId = "dashboard" | "users" | "apps" | "withdrawals" | "stats";
+
+// ---- Helpers localStorage ----
+function getLS<T>(key: string, fallback: T): T {
+  try { return JSON.parse(localStorage.getItem(key) || "null") ?? fallback; }
+  catch { return fallback; }
+}
+function setLS(key: string, value: unknown) {
+  localStorage.setItem(key, JSON.stringify(value));
+}
+
+// ---- Seed de datos demo ----
+function seedDemoData() {
+  if (!localStorage.getItem("nexusai_seeded")) {
+    const users: StoredUser[] = [
+      { id: "u1", email: "demo1@gmail.com", name: "Carlos M.", credits: 85, banned: false, created_at: "2026-07-01T10:00:00Z" },
+      { id: "u2", email: "demo2@gmail.com", name: "Ana P.", credits: 120, banned: false, created_at: "2026-07-05T12:00:00Z" },
+      { id: "u3", email: "demo3@gmail.com", name: "Luis R.", credits: 0, banned: true, created_at: "2026-07-08T09:00:00Z" },
+    ];
+    const apps: StoredApp[] = [
+      { id: "a1", name: "App Calculadora", description: "Calculadora científica", status: "published", views: 243, downloads: 87, revenue: 4.2, created_at: "2026-07-02T11:00:00Z", user_email: "demo1@gmail.com" },
+      { id: "a2", name: "Diario Musical", description: "App para registrar composiciones", status: "published", views: 512, downloads: 134, revenue: 9.7, created_at: "2026-07-06T14:00:00Z", user_email: "demo2@gmail.com" },
+      { id: "a3", name: "Timer Pomodoro", description: "Gestor de tiempo", status: "draft", views: 0, downloads: 0, revenue: 0, created_at: "2026-07-10T16:00:00Z", user_email: "demo1@gmail.com" },
+    ];
+    const withdrawals: Withdrawal[] = [
+      { id: "w1", user_email: "demo1@gmail.com", amount: 12.5, status: "pending", created_at: "2026-07-11T08:00:00Z", paypal_email: "demo1paypal@gmail.com" },
+      { id: "w2", user_email: "demo2@gmail.com", amount: 27.0, status: "pending", created_at: "2026-07-11T09:00:00Z", paypal_email: "demo2paypal@gmail.com" },
+    ];
+    setLS("nexusai_users", users);
+    setLS("nexusai_apps", apps);
+    setLS("nexusai_withdrawals", withdrawals);
+    localStorage.setItem("nexusai_seeded", "1");
+  }
+}
 
 export default function Admin() {
-  const { user, isAdmin, signOut, refreshUser } = useAuth();
+  const { user, signOut, isAdmin } = useAuth();
   const navigate = useNavigate();
+  const [activeTab, setActiveTab] = useState<TabId>("dashboard");
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<Tab>("dashboard");
-  const [loading, setLoading] = useState(false);
+  const [users, setUsers] = useState<StoredUser[]>([]);
+  const [apps, setApps] = useState<StoredApp[]>([]);
+  const [withdrawals, setWithdrawals] = useState<Withdrawal[]>([]);
+  const [toast, setToast] = useState<string | null>(null);
 
-  // Estados
-  const [allUsers, setAllUsers] = useState<any[]>([]);
-  const [allApps, setAllApps] = useState<any[]>([]);
-  const [dashboard, setDashboard] = useState<any>(null);
-  const [investments, setInvestments] = useState<any[]>([]);
-  const [withdrawals, setWithdrawals] = useState<any[]>([]);
-  const [marketAnalysis, setMarketAnalysis] = useState<any>(null);
-  const [analyzing, setAnalyzing] = useState(false);
-
-  // Form inversión
-  const [invAmount, setInvAmount] = useState("");
-  const [invAsset, setInvAsset] = useState("SPY");
-  const [invName, setInvName] = useState("");
-
-  // Form retiro
-  const [withdrawAmount, setWithdrawAmount] = useState("");
-  const paypalEmail = "joanlazaro83@gmail.com";
-
-  const loadAll = async () => {
-    if (!user) return;
-    setLoading(true);
-    try {
-      const [u, a, d, invs, wds] = await Promise.all([
-        api.listUsers().catch(() => []),
-        api.getAllApps().catch(() => []),
-        api.getFinancialDashboard(user.id).catch(() => null),
-        api.getInvestments(user.id).catch(() => []),
-        api.getWithdrawals(user.id).catch(() => []),
-      ]);
-      setAllUsers(u);
-      setAllApps(a);
-      setDashboard(d);
-      setInvestments(invs);
-      setWithdrawals(wds);
-    } catch {}
-    setLoading(false);
-  };
-
+  // Guard
   useEffect(() => {
-    if (isAdmin && user) loadAll();
-  }, [isAdmin, user]);
+    if (!user || !isAdmin) navigate("/dashboard");
+  }, [user, isAdmin, navigate]);
 
-  const handleAnalyzeMarket = async () => {
-    if (!user) return;
-    setAnalyzing(true);
-    try {
-      const result = await api.analyzeMarket(user.id);
-      setMarketAnalysis(result);
-    } catch {}
-    setAnalyzing(false);
+  const loadData = useCallback(() => {
+    seedDemoData();
+    setUsers(getLS<StoredUser[]>("nexusai_users", []));
+    setApps(getLS<StoredApp[]>("nexusai_apps", []));
+    setWithdrawals(getLS<Withdrawal[]>("nexusai_withdrawals", []));
+  }, []);
+
+  useEffect(() => { loadData(); }, [loadData]);
+
+  const showToast = (msg: string) => {
+    setToast(msg);
+    setTimeout(() => setToast(null), 5000);
   };
 
-  const handleProposeInvestment = async () => {
-    if (!user || !marketAnalysis) return;
-    const amount = parseFloat(invAmount);
-    if (!amount || amount <= 0) return;
-
-    try {
-      await api.proposeInvestment({
-        user_id: user.id,
-        name: invName || `Inversión ${invAsset}`,
-        asset_type: "etf",
-        ticker: invAsset,
-        amount,
-        confidence: marketAnalysis.confidence || 75,
-        strategy: marketAnalysis.strategy || "growth",
-        analysis_log: JSON.stringify(marketAnalysis),
-      });
-      setInvAmount("");
-      setInvName("");
-      await loadAll();
-    } catch {}
+  // ---- Acciones ----
+  const toggleBan = (uid: string) => {
+    const updated = users.map(u => u.id === uid ? { ...u, banned: !u.banned } : u);
+    setUsers(updated);
+    setLS("nexusai_users", updated);
   };
 
-  const handleRequestWithdrawal = async () => {
-    if (!user) return;
-    const amount = parseFloat(withdrawAmount);
-    if (!amount || amount <= 0) return;
-
-    try {
-      await api.requestWithdrawal(user.id, amount, paypalEmail);
-      setWithdrawAmount("");
-      await loadAll();
-      await refreshUser();
-    } catch {}
+  const deleteApp = (aid: string) => {
+    const updated = apps.filter(a => a.id !== aid);
+    setApps(updated);
+    setLS("nexusai_apps", updated);
   };
 
-  const handleProcessWithdrawal = async (id: string, action: "approve" | "reject") => {
-    try {
-      await api.processWithdrawal(id, action);
-      await loadAll();
-    } catch {}
+  const handleWithdrawal = (wid: string, action: "approved" | "rejected") => {
+    const updated = withdrawals.map(w => w.id === wid ? { ...w, status: action } : w);
+    setWithdrawals(updated);
+    setLS("nexusai_withdrawals", updated);
+    if (action === "approved") {
+      const w = withdrawals.find(x => x.id === wid);
+      showToast(`✅ €${w?.amount.toFixed(2)} enviado a PayPal: joanlazaro83@gmail.com`);
+    }
   };
 
-  if (!isAdmin) {
-    return (
-      <div className="min-h-screen bg-background text-foreground flex items-center justify-center">
-        <Card className="max-w-md w-full mx-4">
-          <CardContent className="py-12 text-center">
-            <AlertCircle className="w-12 h-12 text-destructive mx-auto mb-3" />
-            <h2 className="text-lg font-bold mb-2">Acceso denegado</h2>
-            <p className="text-sm text-muted-foreground mb-4">Solo el administrador puede acceder a este panel.</p>
-            <Button onClick={() => navigate("/dashboard")} className="cursor-pointer">Volver al Dashboard</Button>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
+  // ---- KPIs ----
+  const totalRevenue = apps.reduce((s, a) => s + a.revenue, 0);
+  const admobRevenue = totalRevenue * 0.6;
+  const amazonRevenue = totalRevenue * 0.4;
+  const pendingWithdrawals = withdrawals.filter(w => w.status === "pending").length;
+  const bannedUsers = users.filter(u => u.banned).length;
+  const publishedApps = apps.filter(a => a.status === "published").length;
 
-  const sidebarItems = [
-    { id: "dashboard" as Tab, icon: BarChart3, label: "Dashboard" },
-    { id: "investments" as Tab, icon: TrendingUp, label: "Inversiones" },
-    { id: "withdrawals" as Tab, icon: Wallet, label: "Retiros" },
-    { id: "users" as Tab, icon: Users, label: "Usuarios" },
-    { id: "config" as Tab, icon: Settings, label: "Configuración" },
+  // Ingresos ficticios por mes (últimos 6)
+  const monthlyData = [
+    { month: "Feb", amount: 3.2 },
+    { month: "Mar", amount: 7.8 },
+    { month: "Abr", amount: 12.1 },
+    { month: "May", amount: 18.5 },
+    { month: "Jun", amount: 24.3 },
+    { month: "Jul", amount: totalRevenue > 0 ? totalRevenue : 31.6 },
   ];
+  const maxAmount = Math.max(...monthlyData.map(m => m.amount));
 
-  const totalRevenue = dashboard?.total_revenue || 0;
-  const totalInvested = dashboard?.total_invested || 0;
-  const totalWithdrawn = dashboard?.total_withdrawn || 0;
-  const balance = user?.balance || 0;
+  const sidebarItems: { id: TabId; icon: React.ElementType; label: string; badge?: number }[] = [
+    { id: "dashboard", icon: BarChart3, label: "Dashboard" },
+    { id: "users", icon: Users, label: "Usuarios", badge: bannedUsers || undefined },
+    { id: "apps", icon: Bot, label: "Apps", badge: publishedApps || undefined },
+    { id: "withdrawals", icon: Wallet, label: "Retiros", badge: pendingWithdrawals || undefined },
+    { id: "stats", icon: TrendingUp, label: "Estadísticas" },
+  ];
 
   return (
     <div className="min-h-screen bg-background text-foreground flex">
-      {/* Sidebar */}
-      <aside className={`fixed md:sticky top-0 left-0 z-40 h-screen w-64 border-r border-border bg-card/50 backdrop-blur-xl flex flex-col transition-transform ${sidebarOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"}`}>
-        <div className="flex items-center gap-2 p-4 border-b border-border">
-          <BrainCircuit className="text-primary w-6 h-6" />
-          <span className="font-bold">NexusAI</span>
-          <Badge className="bg-amber-500/10 text-amber-400 border-amber-500/20 text-[10px] ml-auto">Admin</Badge>
+      {/* Toast */}
+      {toast && (
+        <div className="fixed top-4 right-4 z-50 bg-emerald-600 text-white px-4 py-3 rounded-xl shadow-lg text-sm font-medium animate-pulse">
+          {toast}
         </div>
+      )}
 
+      {/* Overlay mobile */}
+      {sidebarOpen && <div className="fixed inset-0 z-30 bg-black/50 lg:hidden" onClick={() => setSidebarOpen(false)} />}
+
+      {/* Sidebar */}
+      <aside className={`fixed lg:static top-0 left-0 z-40 h-screen w-64 border-r border-border bg-card/80 backdrop-blur-xl flex flex-col transition-transform ${sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}`}>
+        <div className="flex items-center gap-2 p-4 border-b border-border">
+          <Shield className="text-violet-400 w-5 h-5" />
+          <span className="font-bold text-sm">NexusAI Admin</span>
+        </div>
         <nav className="flex-1 p-3 space-y-1">
           {sidebarItems.map(item => (
             <button
               key={item.id}
               onClick={() => { setActiveTab(item.id); setSidebarOpen(false); }}
-              className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors cursor-pointer ${
-                activeTab === item.id ? "bg-primary/10 text-primary" : "text-muted-foreground hover:text-foreground hover:bg-secondary/50"
-              }`}
+              className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-colors cursor-pointer ${activeTab === item.id ? "bg-violet-500/10 text-violet-400" : "text-muted-foreground hover:text-foreground hover:bg-secondary/50"}`}
             >
-              <item.icon className="w-4 h-4" />
-              {item.label}
+              <div className="flex items-center gap-3">
+                <item.icon className="w-4 h-4" />
+                {item.label}
+              </div>
+              {item.badge ? <Badge className="bg-violet-500/20 text-violet-400 text-xs px-1.5">{item.badge}</Badge> : null}
             </button>
           ))}
         </nav>
-
-        <div className="p-3 border-t border-border space-y-2">
-          <div className="text-xs text-muted-foreground px-3">
-            <span className="block">{user?.email}</span>
-            <span className="block text-[10px] mt-0.5">Balance: {balance.toFixed(2)}€</span>
-          </div>
-          <button onClick={() => navigate("/dashboard")} className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-secondary/50 cursor-pointer">
-            <BrainCircuit className="w-4 h-4" />
-            Dashboard Usuario
-          </button>
-          <button onClick={signOut} className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-secondary/50 cursor-pointer">
-            <LogOut className="w-4 h-4" />
-            Cerrar sesión
+        <div className="p-3 border-t border-border space-y-1">
+          <div className="px-3 py-2 text-xs text-muted-foreground truncate">{user?.email}</div>
+          <button onClick={() => { signOut(); navigate("/"); }} className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-red-400 hover:bg-red-500/10 cursor-pointer transition-colors">
+            <LogOut className="w-4 h-4" /> Cerrar sesión
           </button>
         </div>
       </aside>
 
-      {/* Overlay */}
-      {sidebarOpen && (
-        <div className="fixed inset-0 z-30 bg-black/50 md:hidden" onClick={() => setSidebarOpen(false)} />
-      )}
-
       {/* Main */}
-      <div className="flex-1 flex flex-col min-h-screen">
-        <header className="sticky top-0 z-20 border-b border-border bg-background/80 backdrop-blur-xl">
-          <div className="flex items-center justify-between px-4 h-14">
-            <div className="flex items-center gap-3">
-              <button className="md:hidden cursor-pointer" onClick={() => setSidebarOpen(true)}>
-                <Menu className="w-5 h-5" />
-              </button>
-              <h1 className="font-semibold text-sm">
-                {activeTab === "dashboard" && "Panel de Control"}
-                {activeTab === "investments" && "🧠 SuperAgente Financiero"}
-                {activeTab === "withdrawals" && "💰 Retiros"}
-                {activeTab === "users" && "👥 Usuarios"}
-                {activeTab === "config" && "⚙️ Configuración"}
-              </h1>
-            </div>
-            <div className="flex items-center gap-2">
-              <Button variant="ghost" size="sm" onClick={loadAll} className="cursor-pointer text-xs" disabled={loading}>
-                <RefreshCw className={`w-3 h-3 mr-1 ${loading ? "animate-spin" : ""}`} />
-                Actualizar
-              </Button>
-            </div>
+      <div className="flex-1 flex flex-col min-w-0">
+        {/* Header */}
+        <header className="sticky top-0 z-20 flex items-center justify-between px-4 py-3 border-b border-border bg-background/80 backdrop-blur">
+          <div className="flex items-center gap-3">
+            <button onClick={() => setSidebarOpen(true)} className="lg:hidden text-muted-foreground hover:text-foreground cursor-pointer"><Menu className="w-5 h-5" /></button>
+            <h1 className="font-semibold text-sm">
+              {activeTab === "dashboard" && "📊 Dashboard"}
+              {activeTab === "users" && "👥 Usuarios"}
+              {activeTab === "apps" && "🤖 Apps generadas"}
+              {activeTab === "withdrawals" && "💸 Solicitudes de retiro"}
+              {activeTab === "stats" && "📈 Estadísticas globales"}
+            </h1>
           </div>
+          <Button variant="outline" size="sm" onClick={loadData} className="cursor-pointer gap-1 text-xs">
+            <RefreshCw className="w-3 h-3" /> Actualizar
+          </Button>
         </header>
 
-        <div className="flex-1 p-4 sm:p-6 max-w-6xl w-full mx-auto space-y-6">
-          {/* DASHBOARD TAB */}
-          {activeTab === "dashboard" && (
-            <>
-              {/* Stats Grid */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                <Card>
-                  <CardContent className="p-4">
-                    <div className="flex items-center gap-2 text-emerald-400 mb-1">
-                      <TrendingUp className="w-4 h-4" />
-                      <span className="text-[10px] font-medium">Ingresos Totales</span>
-                    </div>
-                    <p className="text-xl font-bold">{totalRevenue.toFixed(2)}€</p>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardContent className="p-4">
-                    <div className="flex items-center gap-2 text-violet-400 mb-1">
-                      <PiggyBank className="w-4 h-4" />
-                      <span className="text-[10px] font-medium">Invertido</span>
-                    </div>
-                    <p className="text-xl font-bold">{totalInvested.toFixed(2)}€</p>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardContent className="p-4">
-                    <div className="flex items-center gap-2 text-amber-400 mb-1">
-                      <Wallet className="w-4 h-4" />
-                      <span className="text-[10px] font-medium">Retirado</span>
-                    </div>
-                    <p className="text-xl font-bold">{totalWithdrawn.toFixed(2)}€</p>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardContent className="p-4">
-                    <div className="flex items-center gap-2 text-blue-400 mb-1">
-                      <DollarSign className="w-4 h-4" />
-                      <span className="text-[10px] font-medium">Balance</span>
-                    </div>
-                    <p className="text-xl font-bold">{balance.toFixed(2)}€</p>
-                  </CardContent>
-                </Card>
-              </div>
+        <main className="flex-1 p-4 overflow-auto">
+          <motion.div key={activeTab} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }}>
 
-              {/* Apps generadas */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-sm flex items-center gap-2">
-                    <Smartphone className="w-4 h-4 text-primary" />
-                    Apps Generadas ({allApps.length})
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  {allApps.length === 0 ? (
-                    <p className="text-xs text-muted-foreground">No hay apps generadas aún</p>
-                  ) : (
-                    <div className="space-y-2 max-h-60 overflow-y-auto">
-                      {allApps.map((app) => (
-                        <div key={app.id} className="flex items-center justify-between p-2 rounded-lg bg-secondary/30 text-xs">
-                          <div className="flex-1">
-                            <span className="font-medium">{app.name}</span>
-                            <span className="text-muted-foreground ml-2">{app.email || ""}</span>
-                          </div>
-                          <div className="flex items-center gap-3 text-muted-foreground">
-                            <span>👁️ {app.views || 0}</span>
-                            <span>💰 {app.revenue?.toFixed(2) || "0.00"}€</span>
-                            <Badge className={`text-[9px] ${
-                              app.status === "published" ? "bg-emerald-500/10 text-emerald-400" :
-                              "bg-amber-500/10 text-amber-400"
-                            }`}>{app.status}</Badge>
-                          </div>
+            {/* ===== DASHBOARD ===== */}
+            {activeTab === "dashboard" && (
+              <div className="space-y-6">
+                {/* KPI Cards */}
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                  {[
+                    { label: "AdMob este mes", value: `€${admobRevenue.toFixed(2)}`, icon: Activity, color: "text-yellow-400", bg: "bg-yellow-500/10" },
+                    { label: "Amazon este mes", value: `€${amazonRevenue.toFixed(2)}`, icon: ShoppingCart, color: "text-orange-400", bg: "bg-orange-500/10" },
+                    { label: "Total este mes", value: `€${totalRevenue.toFixed(2)}`, icon: DollarSign, color: "text-emerald-400", bg: "bg-emerald-500/10" },
+                    { label: "Acumulado", value: `€${monthlyData.reduce((s, m) => s + m.amount, 0).toFixed(2)}`, icon: TrendingUp, color: "text-violet-400", bg: "bg-violet-500/10" },
+                  ].map(k => (
+                    <Card key={k.label} className="border-border bg-card/50">
+                      <CardContent className="p-4">
+                        <div className={`w-8 h-8 rounded-lg ${k.bg} flex items-center justify-center mb-2`}>
+                          <k.icon className={`w-4 h-4 ${k.color}`} />
+                        </div>
+                        <div className="text-xl font-bold">{k.value}</div>
+                        <div className="text-xs text-muted-foreground mt-0.5">{k.label}</div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+
+                {/* Gráfico de barras CSS */}
+                <Card className="border-border bg-card/50">
+                  <CardHeader><CardTitle className="text-sm">Ingresos mensuales</CardTitle></CardHeader>
+                  <CardContent>
+                    <div className="flex items-end gap-2 h-32">
+                      {monthlyData.map(m => (
+                        <div key={m.month} className="flex-1 flex flex-col items-center gap-1">
+                          <span className="text-xs text-muted-foreground">€{m.amount.toFixed(0)}</span>
+                          <div
+                            className="w-full rounded-t-md bg-violet-500/70 transition-all"
+                            style={{ height: `${(m.amount / maxAmount) * 100}%` }}
+                          />
+                          <span className="text-xs text-muted-foreground">{m.month}</span>
                         </div>
                       ))}
                     </div>
-                  )}
-                </CardContent>
-              </Card>
+                  </CardContent>
+                </Card>
 
-              {/* Ingresos por fuente */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-sm">Fuentes de Ingreso</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-3 gap-3">
-                    <div className="p-3 rounded-lg bg-emerald-500/5 border border-emerald-500/20 text-center">
-                      <p className="text-[10px] text-emerald-400 font-medium">AdMob</p>
-                      <p className="text-lg font-bold">{(totalRevenue * 0.45).toFixed(2)}€</p>
-                      <p className="text-[9px] text-muted-foreground">45% estimado</p>
-                    </div>
-                    <div className="p-3 rounded-lg bg-blue-500/5 border border-blue-500/20 text-center">
-                      <p className="text-[10px] text-blue-400 font-medium">Amazon Afiliados</p>
-                      <p className="text-lg font-bold">{(totalRevenue * 0.35).toFixed(2)}€</p>
-                      <p className="text-[9px] text-muted-foreground">35% estimado</p>
-                    </div>
-                    <div className="p-3 rounded-lg bg-violet-500/5 border border-violet-500/20 text-center">
-                      <p className="text-[10px] text-violet-400 font-medium">Suscripciones</p>
-                      <p className="text-lg font-bold">{(totalRevenue * 0.20).toFixed(2)}€</p>
-                      <p className="text-[9px] text-muted-foreground">20% estimado</p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </>
-          )}
+                {/* Resumen rápido */}
+                <div className="grid grid-cols-3 gap-3">
+                  {[
+                    { label: "Apps publicadas", value: publishedApps },
+                    { label: "Retiros pendientes", value: pendingWithdrawals },
+                    { label: "Usuarios activos", value: users.filter(u => !u.banned).length },
+                  ].map(s => (
+                    <Card key={s.label} className="border-border bg-card/50">
+                      <CardContent className="p-4 text-center">
+                        <div className="text-2xl font-bold text-violet-400">{s.value}</div>
+                        <div className="text-xs text-muted-foreground mt-1">{s.label}</div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              </div>
+            )}
 
-          {/* INVESTMENTS TAB — SuperAgente Financiero */}
-          {activeTab === "investments" && (
-            <>
-              {/* Market Analysis */}
-              <Card className="border-violet-500/20">
-                <CardHeader>
-                  <CardTitle className="text-sm flex items-center gap-2">
-                    <Bot className="w-4 h-4 text-violet-400" />
-                    🧠 SuperAgente — Análisis de Mercado
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-xs text-muted-foreground mb-3">
-                    El SuperAgente analiza los mercados globales y propone estrategias de inversión 
-                    basadas en los ingresos generados por NexusAI. TÚ decides el porcentaje a invertir.
-                  </p>
-                  <Button
-                    onClick={handleAnalyzeMarket}
-                    disabled={analyzing}
-                    className="w-full cursor-pointer gap-2 bg-violet-600 hover:bg-violet-500"
-                  >
-                    {analyzing ? (
-                      <><Loader2 className="w-4 h-4 animate-spin" /> Analizando mercados...</>
-                    ) : (
-                      <><BarChart3 className="w-4 h-4" /> Analizar Mercados Ahora</>
-                    )}
-                  </Button>
-
-                  {marketAnalysis && (
-                    <motion.div
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      className="mt-4 p-3 rounded-lg bg-violet-500/5 border border-violet-500/20"
-                    >
-                      <div className="flex items-center justify-between mb-2">
-                        <h4 className="text-sm font-medium text-violet-300">📊 Análisis Completo</h4>
-                        <Badge className="bg-emerald-500/10 text-emerald-400 text-[10px]">
-                          Confianza: {marketAnalysis.confidence || 75}%
-                        </Badge>
+            {/* ===== USUARIOS ===== */}
+            {activeTab === "users" && (
+              <div className="space-y-3">
+                {users.length === 0 && <p className="text-muted-foreground text-sm text-center py-10">Sin usuarios registrados.</p>}
+                {users.map(u => (
+                  <Card key={u.id} className={`border-border ${u.banned ? "bg-red-500/5 border-red-500/20" : "bg-card/50"}`}>
+                    <CardContent className="p-4 flex items-center justify-between gap-3">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium text-sm truncate">{u.name}</span>
+                          {u.banned && <Badge className="bg-red-500/20 text-red-400 text-xs">Baneado</Badge>}
+                        </div>
+                        <div className="text-xs text-muted-foreground truncate">{u.email}</div>
+                        <div className="text-xs text-muted-foreground mt-0.5">Créditos: {u.credits} · {new Date(u.created_at).toLocaleDateString("es-ES")}</div>
                       </div>
-                      <p className="text-xs text-muted-foreground mb-2">{marketAnalysis.analysis || marketAnalysis.message}</p>
-                      {marketAnalysis.opportunities && (
-                        <div className="space-y-1 mb-3">
-                          {marketAnalysis.opportunities.map((opp: string, i: number) => (
-                            <div key={i} className="flex items-start gap-2 text-xs">
-                              <ArrowUpRight className="w-3 h-3 text-emerald-400 mt-0.5 shrink-0" />
-                              <span>{opp}</span>
-                            </div>
-                          ))}
+                      <Button
+                        size="sm" variant="outline"
+                        className={`cursor-pointer shrink-0 ${u.banned ? "border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10" : "border-red-500/30 text-red-400 hover:bg-red-500/10"}`}
+                        onClick={() => toggleBan(u.id)}
+                      >
+                        {u.banned ? <><Check className="w-3 h-3 mr-1" />Desbanear</> : <><Ban className="w-3 h-3 mr-1" />Banear</>}
+                      </Button>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
+
+            {/* ===== APPS ===== */}
+            {activeTab === "apps" && (
+              <div className="space-y-3">
+                {apps.length === 0 && <p className="text-muted-foreground text-sm text-center py-10">Sin apps generadas aún.</p>}
+                {apps.map(a => (
+                  <Card key={a.id} className="border-border bg-card/50">
+                    <CardContent className="p-4 flex items-center justify-between gap-3">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-medium text-sm">{a.name}</span>
+                          <Badge className={a.status === "published" ? "bg-emerald-500/20 text-emerald-400 text-xs" : "bg-secondary text-muted-foreground text-xs"}>
+                            {a.status === "published" ? "Publicada" : "Borrador"}
+                          </Badge>
+                        </div>
+                        <div className="text-xs text-muted-foreground truncate">{a.description}</div>
+                        <div className="text-xs text-muted-foreground mt-0.5">
+                          👁 {a.views} · ⬇️ {a.downloads} · €{a.revenue.toFixed(2)} · {a.user_email}
+                        </div>
+                      </div>
+                      <Button size="sm" variant="outline" className="cursor-pointer shrink-0 border-red-500/30 text-red-400 hover:bg-red-500/10" onClick={() => deleteApp(a.id)}>
+                        <Trash2 className="w-3 h-3 mr-1" /> Eliminar
+                      </Button>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
+
+            {/* ===== RETIROS ===== */}
+            {activeTab === "withdrawals" && (
+              <div className="space-y-3">
+                {withdrawals.length === 0 && <p className="text-muted-foreground text-sm text-center py-10">Sin solicitudes de retiro.</p>}
+                {withdrawals.map(w => (
+                  <Card key={w.id} className={`border-border ${w.status === "approved" ? "bg-emerald-500/5 border-emerald-500/20" : w.status === "rejected" ? "bg-red-500/5 border-red-500/20" : "bg-card/50"}`}>
+                    <CardContent className="p-4 flex items-center justify-between gap-3 flex-wrap">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-bold text-emerald-400">€{w.amount.toFixed(2)}</span>
+                          <Badge className={
+                            w.status === "approved" ? "bg-emerald-500/20 text-emerald-400 text-xs" :
+                            w.status === "rejected" ? "bg-red-500/20 text-red-400 text-xs" :
+                            "bg-yellow-500/20 text-yellow-400 text-xs"
+                          }>
+                            {w.status === "approved" ? "Aprobado" : w.status === "rejected" ? "Rechazado" : "Pendiente"}
+                          </Badge>
+                        </div>
+                        <div className="text-xs text-muted-foreground">{w.user_email}</div>
+                        <div className="text-xs text-muted-foreground">PayPal: {w.paypal_email} · {new Date(w.created_at).toLocaleDateString("es-ES")}</div>
+                      </div>
+                      {w.status === "pending" && (
+                        <div className="flex gap-2 shrink-0">
+                          <Button size="sm" className="cursor-pointer bg-emerald-600 hover:bg-emerald-700 text-white" onClick={() => handleWithdrawal(w.id, "approved")}>
+                            <Check className="w-3 h-3 mr-1" /> Aprobar
+                          </Button>
+                          <Button size="sm" variant="outline" className="cursor-pointer border-red-500/30 text-red-400 hover:bg-red-500/10" onClick={() => handleWithdrawal(w.id, "rejected")}>
+                            <X className="w-3 h-3 mr-1" /> Rechazar
+                          </Button>
                         </div>
                       )}
-                      <Badge className="bg-violet-500/10 text-violet-400 border-violet-500/20 text-[10px]">
-                        Estrategia: {marketAnalysis.strategy || "balanced"}
-                      </Badge>
-                    </motion.div>
-                  )}
-                </CardContent>
-              </Card>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
 
-              {/* Proponer inversión */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-sm flex items-center gap-2">
-                    <Target className="w-4 h-4 text-primary" />
-                    Proponer Inversión
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-3">
-                    <div>
-                      <label className="text-[10px] text-muted-foreground mb-1 block">Nombre de la inversión</label>
-                      <Input
-                        value={invName}
-                        onChange={(e) => setInvName(e.target.value)}
-                        placeholder="Ej: ETF SP500 Growth"
-                        className="text-sm"
-                      />
-                    </div>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <label className="text-[10px] text-muted-foreground mb-1 block">Activo</label>
-                        <select
-                          value={invAsset}
-                          onChange={(e) => setInvAsset(e.target.value)}
-                          className="w-full bg-background border border-input rounded-lg px-3 py-2 text-sm"
-                        >
-                          <option value="SPY">SPY (S&P 500)</option>
-                          <option value="QQQ">QQQ (Nasdaq)</option>
-                          <option value="BTC">Bitcoin</option>
-                          <option value="ETH">Ethereum</option>
-                          <option value="VNQ">VNQ (REITs)</option>
-                          <option value="BND">BND (Bonos)</option>
-                        </select>
-                      </div>
-                      <div>
-                        <label className="text-[10px] text-muted-foreground mb-1 block">Cantidad (€)</label>
-                        <Input
-                          type="number"
-                          value={invAmount}
-                          onChange={(e) => setInvAmount(e.target.value)}
-                          placeholder="100"
-                          className="text-sm"
-                        />
-                      </div>
-                    </div>
-                    <Button
-                      onClick={handleProposeInvestment}
-                      disabled={!invAmount || !marketAnalysis}
-                      className="w-full cursor-pointer"
-                    >
-                      <Zap className="w-4 h-4 mr-1" /> Proponer Inversión
-                    </Button>
-                    {!marketAnalysis && (
-                      <p className="text-[10px] text-amber-400">Primero analiza el mercado para activar la propuesta</p>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
+            {/* ===== ESTADÍSTICAS ===== */}
+            {activeTab === "stats" && (
+              <div className="space-y-6">
+                <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
+                  {[
+                    { label: "Total apps", value: apps.length, icon: Bot, color: "text-cyan-400" },
+                    { label: "Apps publicadas", value: publishedApps, icon: CreditCard, color: "text-emerald-400" },
+                    { label: "Total usuarios", value: users.length, icon: Users, color: "text-violet-400" },
+                    { label: "Usuarios activos", value: users.filter(u => !u.banned).length, icon: Activity, color: "text-blue-400" },
+                    { label: "Ingresos totales", value: `€${monthlyData.reduce((s, m) => s + m.amount, 0).toFixed(2)}`, icon: DollarSign, color: "text-yellow-400" },
+                    { label: "Retiros aprobados", value: withdrawals.filter(w => w.status === "approved").length, icon: Wallet, color: "text-pink-400" },
+                  ].map(s => (
+                    <Card key={s.label} className="border-border bg-card/50">
+                      <CardContent className="p-4">
+                        <s.icon className={`w-5 h-5 ${s.color} mb-2`} />
+                        <div className="text-2xl font-bold">{s.value}</div>
+                        <div className="text-xs text-muted-foreground mt-0.5">{s.label}</div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
 
-              {/* Inversiones activas */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-sm flex items-center gap-2">
-                    <LineChart className="w-4 h-4 text-emerald-400" />
-                    Cartera de Inversiones ({investments.length})
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  {investments.length === 0 ? (
-                    <p className="text-xs text-muted-foreground">No hay inversiones activas. Propón la primera.</p>
-                  ) : (
-                    <div className="space-y-2">
-                      {investments.map((inv: any) => (
-                        <div key={inv.id} className="p-3 rounded-lg border border-border">
-                          <div className="flex items-center justify-between mb-1">
-                            <h4 className="text-sm font-medium">{inv.name}</h4>
-                            <Badge className={`text-[10px] ${
-                              inv.status === "active" ? "bg-emerald-500/10 text-emerald-400" :
-                              inv.status === "pending" ? "bg-amber-500/10 text-amber-400" :
-                              "bg-muted text-muted-foreground"
-                            }`}>{inv.status}</Badge>
-                          </div>
-                          <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                            <span>{inv.ticker}</span>
-                            <span>Invertido: {inv.amount?.toFixed(2) || "0.00"}€</span>
-                            <span className={inv.roi >= 0 ? "text-emerald-400" : "text-red-400"}>
-                              ROI: {inv.roi != null ? `${inv.roi >= 0 ? "+" : ""}${inv.roi.toFixed(2)}%` : "—"}
-                            </span>
-                            <span>Valor actual: {inv.current_value?.toFixed(2) || "—"}€</span>
-                          </div>
+                {/* Breakdown fuentes */}
+                <Card className="border-border bg-card/50">
+                  <CardHeader><CardTitle className="text-sm">Fuentes de ingresos</CardTitle></CardHeader>
+                  <CardContent className="space-y-3">
+                    {[
+                      { label: "AdMob (anuncios)", pct: 60, color: "bg-yellow-500" },
+                      { label: "Amazon Afiliados", pct: 40, color: "bg-orange-500" },
+                    ].map(s => (
+                      <div key={s.label}>
+                        <div className="flex justify-between text-xs mb-1">
+                          <span className="text-muted-foreground">{s.label}</span>
+                          <span className="font-medium">{s.pct}%</span>
                         </div>
-                      ))}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            </>
-          )}
-
-          {/* WITHDRAWALS TAB */}
-          {activeTab === "withdrawals" && (
-            <>
-              {/* Solicitar retiro */}
-              <Card className="border-amber-500/20">
-                <CardHeader>
-                  <CardTitle className="text-sm flex items-center gap-2">
-                    <Wallet className="w-4 h-4 text-amber-400" />
-                    Solicitar Retiro
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between p-3 rounded-lg bg-secondary/30">
-                      <span className="text-xs text-muted-foreground">Balance disponible</span>
-                      <span className="text-lg font-bold text-emerald-400">{balance.toFixed(2)}€</span>
-                    </div>
-                    <div>
-                      <label className="text-[10px] text-muted-foreground mb-1 block">Cantidad a retirar (€)</label>
-                      <Input
-                        type="number"
-                        value={withdrawAmount}
-                        onChange={(e) => setWithdrawAmount(e.target.value)}
-                        placeholder="0.00"
-                        className="text-sm"
-                      />
-                    </div>
-                    <div className="p-2 rounded bg-secondary/20 text-[10px] text-muted-foreground">
-                      PayPal: {paypalEmail}
-                    </div>
-                    <Button
-                      onClick={handleRequestWithdrawal}
-                      disabled={!withdrawAmount || parseFloat(withdrawAmount) <= 0 || parseFloat(withdrawAmount) > balance}
-                      className="w-full cursor-pointer"
-                    >
-                      <CreditCard className="w-4 h-4 mr-1" /> Solicitar Retiro a PayPal
-                    </Button>
-                    {parseFloat(withdrawAmount) > balance && (
-                      <p className="text-[10px] text-red-400">La cantidad excede el balance disponible</p>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Historial de retiros */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-sm">Historial de Retiros ({withdrawals.length})</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  {withdrawals.length === 0 ? (
-                    <p className="text-xs text-muted-foreground">No hay solicitudes de retiro</p>
-                  ) : (
-                    <div className="space-y-2">
-                      {withdrawals.map((w: any) => (
-                        <div key={w.id} className="flex items-center justify-between p-3 rounded-lg border border-border text-xs">
-                          <div>
-                            <p className="font-medium">{w.amount?.toFixed(2) || "0.00"}€</p>
-                            <p className="text-muted-foreground">{w.paypal_email}</p>
-                            <p className="text-[10px] text-muted-foreground">{w.created_at ? new Date(w.created_at).toLocaleString() : ""}</p>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <Badge className={`text-[10px] ${
-                              w.status === "completed" ? "bg-emerald-500/10 text-emerald-400" :
-                              w.status === "pending" ? "bg-amber-500/10 text-amber-400" :
-                              w.status === "rejected" ? "bg-red-500/10 text-red-400" :
-                              "bg-blue-500/10 text-blue-400"
-                            }`}>{w.status}</Badge>
-                            {w.status === "pending" && (
-                              <div className="flex gap-1">
-                                <button
-                                  onClick={() => handleProcessWithdrawal(w.id, "approve")}
-                                  className="p-1 rounded bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 cursor-pointer"
-                                >
-                                  <Check className="w-3 h-3" />
-                                </button>
-                                <button
-                                  onClick={() => handleProcessWithdrawal(w.id, "reject")}
-                                  className="p-1 rounded bg-red-500/20 text-red-400 hover:bg-red-500/30 cursor-pointer"
-                                >
-                                  <X className="w-3 h-3" />
-                                </button>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            </>
-          )}
-
-          {/* USERS TAB */}
-          {activeTab === "users" && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-sm">Usuarios Registrados ({allUsers.length})</CardTitle>
-              </CardHeader>
-              <CardContent>
-                {allUsers.length === 0 ? (
-                  <p className="text-xs text-muted-foreground">No hay usuarios registrados aún</p>
-                ) : (
-                  <div className="space-y-2">
-                    {allUsers.map((u: any) => (
-                      <div key={u.id} className="flex items-center justify-between p-3 rounded-lg border border-border text-xs">
-                        <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-sm">
-                            {(u.name || u.email || "?")[0].toUpperCase()}
-                          </div>
-                          <div>
-                            <p className="font-medium">{u.name || u.email}</p>
-                            <p className="text-muted-foreground">{u.email}</p>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-3 text-muted-foreground">
-                          <span>{u.credits || 0} créditos</span>
-                          <span>{u.balance?.toFixed(2) || "0.00"}€</span>
-                          {u.role === "admin" && (
-                            <Badge className="bg-amber-500/10 text-amber-400 text-[9px]">Admin</Badge>
-                          )}
+                        <div className="w-full bg-secondary rounded-full h-2">
+                          <div className={`${s.color} h-2 rounded-full transition-all`} style={{ width: `${s.pct}%` }} />
                         </div>
                       </div>
                     ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          )}
+                  </CardContent>
+                </Card>
 
-          {/* CONFIG TAB */}
-          {activeTab === "config" && (
-            <>
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-sm">Cuentas de Monetización</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="flex items-center justify-between p-3 rounded-lg border border-border">
-                    <div>
-                      <p className="text-sm font-medium">Google AdMob</p>
-                      <p className="text-xs text-muted-foreground">App ID: ca-app-pub-3940256099942544~3347511713</p>
-                    </div>
-                    <Badge className="bg-emerald-500/10 text-emerald-400 border-emerald-500/20">Activo</Badge>
-                  </div>
-                  <div className="flex items-center justify-between p-3 rounded-lg border border-border">
-                    <div>
-                      <p className="text-sm font-medium">Amazon Afiliados</p>
-                      <p className="text-xs text-muted-foreground">Tracking ID: r3dm01-21 (ES, IT, DE, FR, UK)</p>
-                    </div>
-                    <Badge className="bg-emerald-500/10 text-emerald-400 border-emerald-500/20">Activo</Badge>
-                  </div>
-                  <div className="flex items-center justify-between p-3 rounded-lg border border-border">
-                    <div>
-                      <p className="text-sm font-medium">Retiros a PayPal</p>
-                      <p className="text-xs text-muted-foreground">Email: joanlazaro83@gmail.com</p>
-                    </div>
-                    <Badge variant="outline">Configurado</Badge>
-                  </div>
-                  <div className="p-3 rounded-lg border border-violet-500/20 bg-violet-500/5">
-                    <p className="text-xs text-muted-foreground">
-                      💡 Los retiros se procesan manualmente. Cada solicitud se revisa y se paga desde el panel de administración.
-                    </p>
-                  </div>
-                </CardContent>
-              </Card>
-            </>
-          )}
-        </div>
+                {/* Apps por usuario */}
+                <Card className="border-border bg-card/50">
+                  <CardHeader><CardTitle className="text-sm">Apps por usuario</CardTitle></CardHeader>
+                  <CardContent className="space-y-2">
+                    {users.map(u => {
+                      const userApps = apps.filter(a => a.user_email === u.email).length;
+                      const pct = apps.length > 0 ? (userApps / apps.length) * 100 : 0;
+                      return (
+                        <div key={u.id}>
+                          <div className="flex justify-between text-xs mb-1">
+                            <span className="text-muted-foreground truncate">{u.email}</span>
+                            <span className="font-medium shrink-0 ml-2">{userApps} apps</span>
+                          </div>
+                          <div className="w-full bg-secondary rounded-full h-1.5">
+                            <div className="bg-violet-500 h-1.5 rounded-full" style={{ width: `${pct}%` }} />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </CardContent>
+                </Card>
+              </div>
+            )}
+
+          </motion.div>
+        </main>
       </div>
     </div>
   );
