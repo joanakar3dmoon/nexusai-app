@@ -12,7 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/lib/auth";
 import { useNavigate } from "react-router-dom";
-import api from "@/lib/nexus-api";
+
 
 // ============================================================
 // TIPOS
@@ -466,24 +466,32 @@ Responde con JSON del manifest y código del SW separados por "---".`,
 
       setFinalized(true);
 
-      // ===== GUARDAR EN BACKEND =====
+      // ===== GUARDAR EN LOCALSTORAGE =====
       if (user) {
-        addLog("💾 Guardando app en base de datos...");
+        addLog("💾 Guardando app...");
         try {
-          const result = await api.createApp({
-            user_id: user.id,
+          const newId = crypto.randomUUID();
+          const stored = JSON.parse(localStorage.getItem("nexusai_apps") || "[]");
+          stored.push({
+            id: newId,
+            user_id: user.id || user.email,
             name: analysisData.name || appName,
             description: prompt.trim().slice(0, 500),
             category: analysisData.category || "general",
             prompt: prompt.trim(),
-            source_code: preview.html,
+            source_code: finalHtml,
+            status: "published",
+            views: 0,
+            downloads: 0,
+            revenue: 0,
             monetization: { admob: true, amazon: true, freellm: true, pwa: true },
+            created_at: new Date().toISOString(),
           });
-          setAppId(result.id);
-          addLog(`✅ App guardada (ID: ${result.id.slice(0, 8)}...)`);
-          await refreshUser();
+          localStorage.setItem("nexusai_apps", JSON.stringify(stored));
+          setAppId(newId);
+          addLog(`✅ App guardada (ID: ${newId.slice(0, 8)}...)`);
         } catch (e) {
-          addLog("⚠️ No se pudo guardar en backend — el código está en preview igualmente");
+          addLog("⚠️ No se pudo guardar — el código está disponible para descargar igualmente");
         }
       }
 
@@ -597,7 +605,9 @@ NO pierdas nada del código anterior. Solo aplica el cambio solicitado.`
     }
     addLog("📡 Publicando app...");
     try {
-      await api.publishApp(appId);
+      const stored = JSON.parse(localStorage.getItem("nexusai_apps") || "[]");
+      const idx = stored.findIndex((a: any) => a.id === appId);
+      if (idx >= 0) { stored[idx].status = "published"; localStorage.setItem("nexusai_apps", JSON.stringify(stored)); }
       addLog("✅ App publicada con éxito — visible en el Dashboard");
     } catch (e) {
       addLog("⚠️ Error al publicar — intenta desde el Dashboard");

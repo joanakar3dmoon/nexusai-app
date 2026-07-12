@@ -341,14 +341,24 @@ export default function Dashboard() {
                 </Card>
               )}
 
-              <Card className="border-dashed border-primary/20 bg-primary/5">
-                <CardContent className="py-4 text-center">
-                  <p className="text-xs text-muted-foreground">¿Quieres probar un modelo antes de generar tu app?</p>
-                  <Button variant="outline" size="sm" className="mt-2 cursor-pointer" onClick={() => setActiveTab("playground")}>
-                    <FlaskConical className="w-3.5 h-3.5 mr-1" /> Abrir Playground IA
-                  </Button>
-                </CardContent>
-              </Card>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <Card className="border-dashed border-primary/20 bg-primary/5">
+                  <CardContent className="py-4 text-center">
+                    <p className="text-xs text-muted-foreground">¿Quieres probar un modelo antes de generar tu app?</p>
+                    <Button variant="outline" size="sm" className="mt-2 cursor-pointer" onClick={() => setActiveTab("playground")}>
+                      <FlaskConical className="w-3.5 h-3.5 mr-1" /> Abrir Playground IA
+                    </Button>
+                  </CardContent>
+                </Card>
+                <Card className="border-dashed border-violet-500/30 bg-violet-500/5">
+                  <CardContent className="py-4 text-center">
+                    <p className="text-xs text-muted-foreground">Preview en tiempo real + editor de código avanzado</p>
+                    <Button variant="outline" size="sm" className="mt-2 cursor-pointer border-violet-500/40 text-violet-400 hover:bg-violet-500/10" onClick={() => navigate("/builder")}>
+                      <Zap className="w-3.5 h-3.5 mr-1" /> Builder Avanzado ✨
+                    </Button>
+                  </CardContent>
+                </Card>
+              </div>
             </motion.div>
           )}
 
