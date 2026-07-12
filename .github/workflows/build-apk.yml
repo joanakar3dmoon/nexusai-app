@@ -34,16 +34,27 @@ jobs:
       - name: Install dependencies
         run: npm install
 
-      - name: Install Capacitor
-        run: |
-          npm install @capacitor/core @capacitor/cli @capacitor/android
-
       - name: Build Vite
         run: npm run build
 
       - name: Init Capacitor Android
+        run: npx cap add android || true
+
+      - name: Inject AdMob App ID into AndroidManifest.xml
         run: |
-          npx cap add android || true
+          MANIFEST="android/app/src/main/AndroidManifest.xml"
+          if grep -q "com.google.android.gms.ads.APPLICATION_ID" "$MANIFEST"; then
+            sed -i 's|<meta-data android:name="com.google.android.gms.ads.APPLICATION_ID".*/>|<meta-data android:name="com.google.android.gms.ads.APPLICATION_ID" android:value="ca-app-pub-4903263409458961~5751005760"/>|' "$MANIFEST"
+          else
+            sed -i 's|</application>|    <meta-data android:name="com.google.android.gms.ads.APPLICATION_ID" android:value="ca-app-pub-4903263409458961~5751005760"/>\n    </application>|' "$MANIFEST"
+          fi
+
+      - name: Add AdMob dependency to build.gradle
+        run: |
+          GRADLE="android/app/build.gradle"
+          if ! grep -q "play-services-ads" "$GRADLE"; then
+            sed -i '/dependencies {/a\    implementation "com.google.android.gms:play-services-ads:23.0.0"' "$GRADLE"
+          fi
 
       - name: Fix Capacitor Android SDK versions
         run: |
@@ -51,7 +62,6 @@ jobs:
           sed -i 's/targetSdk = .*/targetSdk = 34/' android/app/build.gradle || true
           sed -i 's/compileSdkVersion .*/compileSdkVersion 34/' android/app/build.gradle || true
           sed -i 's/targetSdkVersion .*/targetSdkVersion 34/' android/app/build.gradle || true
-          printf '\nandroid.compileOptions.sourceCompatibility = JavaVersion.VERSION_17\nandroid.compileOptions.targetCompatibility = JavaVersion.VERSION_17\n' >> android/app/build.gradle
 
       - name: Sync Capacitor
         run: npx cap sync android
@@ -60,12 +70,12 @@ jobs:
         working-directory: android
         run: |
           chmod +x gradlew
-          ./gradlew assembleDebug --no-daemon --stacktrace 2>&1 | tail -80
+          ./gradlew assembleDebug --no-daemon --stacktrace 2>&1 | tail -100
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: NexusAI-debug
+          name: NexusAI-APK
           path: android/app/build/outputs/apk/debug/app-debug.apk
           retention-days: 30
 
@@ -75,8 +85,8 @@ jobs:
           tag_name: apk-latest
           name: "NexusAI APK (latest)"
           body: |
-            APK de NexusAI con AdMob + Amazon Afiliados integrados.
-            Instala en cualquier Android (activa fuentes desconocidas).
+            APK de NexusAI con AdMob completo:
+            Banner, Interstitial, Rewarded, Rewarded Interstitial, Native Advanced, App Open.
           files: android/app/build/outputs/apk/debug/app-debug.apk
           make_latest: true
         env:
