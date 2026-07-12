@@ -29,7 +29,7 @@ function setLS(k: string, v: unknown) { localStorage.setItem(k, JSON.stringify(v
 function seedFinance() {
   if (getLS("nexusai_finance", null)) return;
   const entries: FinancialEntry[] = [
-    { source: "AdMob", amount: 0, date: new Date().toISOString(), note: "Pendiente configurar App ID real" },
+    { source: "AdMob", amount: 0, date: new Date().toISOString(), note: "App ID: ca-app-pub-4903263409458961~5751005760" },
     { source: "Amazon Afiliados", amount: 0, date: new Date().toISOString(), note: "Tracking ID: r3dm01-21 activo" },
     { source: "Suscripciones", amount: 0, date: new Date().toISOString(), note: "Aún no hay suscriptores de pago" },
   ];
