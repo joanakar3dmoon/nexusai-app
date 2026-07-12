@@ -163,6 +163,7 @@ export default function Dashboard() {
   const playBottomRef = useRef<HTMLDivElement>(null);
 
   const [activeTab, setActiveTab] = useState<TabId>("generator");
+  const [previewCode, setPreviewCode] = useState<string | null>(null);
 
   useEffect(() => { setApps(loadStoredApps()); }, []);
   useEffect(() => { playBottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [playMessages]);
@@ -225,8 +226,7 @@ export default function Dashboard() {
     setApps(updated); saveApps(updated);
   };
   const previewApp = (code: string) => {
-    const blob = new Blob([code], { type: "text/html" });
-    window.open(URL.createObjectURL(blob), "_blank");
+    setPreviewCode(code);
   };
   const downloadApp = (app: AppRecord) => {
     if (!app.source_code) return;
@@ -259,7 +259,8 @@ export default function Dashboard() {
           {sidebarItems.map(item => (
             <button
               key={item.id}
-              onClick={() => { setActiveTab(item.id); setSidebarOpen(false); }}
+              onPointerDown={(e) => { e.stopPropagation(); setActiveTab(item.id); setSidebarOpen(false); }}
+              onClick={(e) => { e.stopPropagation(); setActiveTab(item.id); setSidebarOpen(false); }}
               className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors cursor-pointer ${
                 activeTab === item.id ? "bg-primary/10 text-primary" : "text-muted-foreground hover:text-foreground hover:bg-secondary/50"
               }`}
@@ -788,6 +789,30 @@ export default function Dashboard() {
               </Button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Preview Modal — iframe embebido */}
+      {previewCode && (
+        <div className="fixed inset-0 z-50 flex flex-col bg-black/90 backdrop-blur-sm">
+          <div className="flex items-center justify-between p-3 border-b border-white/10">
+            <span className="text-sm font-semibold flex items-center gap-2"><Globe className="w-4 h-4 text-primary" /> Vista previa</span>
+            <div className="flex gap-2">
+              <Button size="sm" variant="outline" className="cursor-pointer text-xs" onClick={() => {
+                const blob = new Blob([previewCode], { type: "text/html" });
+                window.open(URL.createObjectURL(blob), "_blank");
+              }}>
+                <ExternalLink className="w-3 h-3 mr-1" /> Abrir en pestaña
+              </Button>
+              <button onClick={() => setPreviewCode(null)} className="text-muted-foreground hover:text-foreground cursor-pointer"><X className="w-4 h-4" /></button>
+            </div>
+          </div>
+          <iframe
+            srcDoc={previewCode}
+            className="flex-1 w-full border-0"
+            sandbox="allow-scripts allow-same-origin allow-forms"
+            title="Vista previa de la app"
+          />
         </div>
       )}
     </div>
