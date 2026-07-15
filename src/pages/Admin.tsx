@@ -70,11 +70,11 @@ function lsSet(key: string, value: unknown) {
 }
 
 // ──────────────────────────────────────────────
-// Simulated revenue data (AdMob + Amazon)
+// Revenue real desde Supabase (empieza en 0)
 // ──────────────────────────────────────────────
 const MONTHS = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
-const ADMOB_DATA = [12, 18, 14, 22, 30, 27, 35, 40, 33, 28, 45, 52];
-const AMAZON_DATA = [5, 8, 6, 10, 14, 12, 16, 20, 15, 13, 22, 28];
+const ADMOB_DATA = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+const AMAZON_DATA = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
 
 // ──────────────────────────────────────────────
 // Bar Chart (pure CSS)
