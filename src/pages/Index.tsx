@@ -114,7 +114,7 @@ function LandingPlayground({ navigate }: { navigate: (p: string) => void }) {
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const d = await res.json();
       let reply = d.choices?.[0]?.message?.content ?? "";
-      reply = reply.replace(/<think>[\\s\\S]*?<\\/think>/g, "").trim();
+      reply = reply.replace(/<think>[\s\S]*?<\/think>/g, "").trim();
       if (!reply) throw new Error("vacía");
       setMsgs([...next, { role: "assistant", content: reply, model: PLAY_MODELS[sel].label }]);
     } catch {
