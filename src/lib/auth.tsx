@@ -10,8 +10,27 @@ export interface User {
   email: string;
   name: string;
   role: "user" | "admin";
+  plan: "free" | "premium" | "admin";
   credits: number;
   balance: number;
+}
+
+// Constantes freemium
+export const FREE_CREDITS = 5;
+export const ADMOB_APP_ID = "ca-app-pub-4903263409458961~5751005760";
+export const ADMOB_BANNER = "ca-app-pub-4903263409458961/8825147276";
+export const ADMIN_EMAIL  = "joanlazaro83@gmail.com";
+
+export function isPremium(user: User | null): boolean {
+  return user?.plan === "premium" || user?.role === "admin";
+}
+export function showAds(user: User | null): boolean {
+  return !isPremium(user);
+}
+export function hasCredits(user: User | null): boolean {
+  if (!user) return false;
+  if (isPremium(user)) return true;
+  return user.credits > 0;
 }
 
 export interface AuthContextType {
@@ -54,7 +73,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signIn = async (email: string, password: string) => {
     try {
       // Admin local sin backend — acceso directo para el propietario
-      const ADMIN_EMAIL = "joanlazaro83@gmail.com";
       const ADMIN_PASS  = "r3dm/Joan83";
       if (email === ADMIN_EMAIL && password === ADMIN_PASS) {
         const adminUser: User = {
@@ -62,6 +80,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           email: ADMIN_EMAIL,
           name: "Joan R3DMOON",
           role: "admin",
+          plan: "admin",
           credits: 999999,
           balance: 0,
         };
@@ -71,12 +90,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       // Usuarios normales — backend FastAPI
       const u = await api.login(email, email.split("@")[0]);
+      const rawCredits = typeof u.credits === "number" ? u.credits : FREE_CREDITS;
       const userData: User = {
         id: u.id,
         email: u.email,
-        role: u.role,
-        credits: u.credits,
-        balance: u.balance,
+        role: u.role || "user",
+        plan: u.plan || (rawCredits > FREE_CREDITS ? "premium" : "free"),
+        credits: rawCredits,
+        balance: u.balance || 0,
         name: u.name || email.split("@")[0],
       };
       setUser(userData);
@@ -98,12 +119,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const u = await api.getUser(user.id);
       if (u) {
+        const rawCredits = typeof u.credits === "number" ? u.credits : user.credits;
         const refreshed: User = {
           id: u.id,
           email: u.email,
-          role: u.role,
-          credits: u.credits,
-          balance: u.balance,
+          role: u.role || "user",
+          plan: u.plan || (rawCredits > FREE_CREDITS ? "premium" : "free"),
+          credits: rawCredits,
+          balance: u.balance || 0,
           name: u.name || user.name,
         };
         setUser(refreshed);
