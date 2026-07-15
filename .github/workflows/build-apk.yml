@@ -1,83 +1,115 @@
-name: Build Android APK
+name: Build APK
 
 on:
   workflow_dispatch:
-  push:
-    branches: ["main"]
-    paths:
-      - 'src/**'
-      - 'package.json'
-      - 'capacitor.config.ts'
-      - 'vite.config.ts'
-
-permissions:
-e
+    inputs:
+      app_name:
+        description: 'Nombre de la app (sin espacios)'
+        required: true
+        default: 'nexusai-app'
+      html_content:
+        description: 'HTML en base64 (opcional - usa el index.html si está vacío)'
+        required: false
+        default: ''
 
 jobs:
-  build-apk:
+  build:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
+
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - uses: actions/setup-node@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: '20'
 
-      - name: Set up JDK 17
+      - name: Setup Java
         uses: actions/setup-java@v4
         with:
-          java-version: '17'
           distribution: 'temurin'
+          java-version: '17'
 
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: Install dependencies
-        run: npm install
+      - name: Install Capacitor CLI
+        run: npm install -g @capacitor/cli
 
-      - name: Build Vite modo Capacitor
-        run: npx vite build --mode capacitor
-
-      - name: Add Android platform
-        run: npx cap add android
-
-      - name: Fix Android SDK versions
+      - name: Create app workspace
         run: |
-          sed -i 's/compileSdk = [0-9]*/compileSdk = 34/' android/app/build.gradle || true
-          sed -i 's/targetSdk = [0-9]*/targetSdk = 34/' android/app/build.gradle || true
-
-      - name: Inject AdMob App ID
-        run: |
-          MANIFEST="android/app/src/main/AndroidManifest.xml"
-          ADMOB_ID="ca-app-pub-4903263409458961~5751005760"
-          if grep -q "APPLICATION_ID" "$MANIFEST"; then
-            sed -i "s|APPLICATION_ID.*/>|APPLICATION_ID\" android:value=\"$ADMOB_ID\"/>|" "$MANIFEST"
+          APP_NAME="${{ github.event.inputs.app_name }}"
+          mkdir -p apk-build/www
+          
+          # Decodificar HTML si viene en base64, si no usar plantilla
+          if [ -n "${{ github.event.inputs.html_content }}" ]; then
+            echo "${{ github.event.inputs.html_content }}" | base64 -d > apk-build/www/index.html
           else
-            sed -i "s|</application>|  <meta-data android:name=\"com.google.android.gms.ads.APPLICATION_ID\" android:value=\"$ADMOB_ID\"/>\n</application>|" "$MANIFEST"
+            cat > apk-build/www/index.html << 'HTML'
+          <!DOCTYPE html>
+          <html lang="es">
+          <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>NexusAI App</title>
+            <style>
+              body { background: #0f0f0f; color: white; font-family: sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; }
+              h1 { color: #7c3aed; }
+            </style>
+          </head>
+          <body><h1>NexusAI App</h1><p>Generada por r3dm/joan</p></body>
+          </html>
+          HTML
           fi
 
-      - name: Sync Capacitor
-        run: npx cap sync android
+      - name: Init Capacitor project
+        working-directory: apk-build
+        run: |
+          APP_NAME="${{ github.event.inputs.app_name }}"
+          npm init -y
+          npm install @capacitor/core @capacitor/android
+          
+          cat > capacitor.config.json << EOF
+          {
+            "appId": "com.r3dm.${APP_NAME}",
+            "appName": "${APP_NAME}",
+            "webDir": "www",
+            "server": {
+              "androidScheme": "https"
+            }
+          }
+          EOF
+          
+          npx cap add android
 
-      - name: Build APK debug
-        working-directory: android
+      - name: Copy web assets
+        working-directory: apk-build
+        run: npx cap copy android
+
+      - name: Build debug APK
+        working-directory: apk-build/android
         run: |
           chmod +x gradlew
-          ./gradlew assembleDebug --no-daemon 2>&1 | tail -30
+          ./gradlew assembleDebug --no-daemon
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: NexusAI-debug
-          path: android/app/build/outputs/apk/debug/app-debug.apk
-          retention-days: 30
+          name: ${{ github.event.inputs.app_name }}-debug
+          path: apk-build/android/app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 7
 
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: apk-${{ github.run_number }}
-          name: "NexusAI APK build ${{ github.run_number }}"
-          files: android/app/build/outputs/apk/debug/app-debug.apk
-          body: "APK debug. Instala activando Fuentes desconocidas."
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: APK info
+        run: |
+          APK_PATH="apk-build/android/app/build/outputs/apk/debug/app-debug.apk"
+          if [ -f "$APK_PATH" ]; then
+            SIZE=$(du -sh "$APK_PATH" | cut -f1)
+            echo "✅ APK generada correctamente"
+            echo "📦 Tamaño: $SIZE"
+            echo "📥 Descárgala desde la pestaña Artifacts de este workflow"
+          else
+            echo "❌ Error al generar la APK"
+            exit 1
+          fi
