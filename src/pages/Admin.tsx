@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { motion } from "motion/react";
 import {
   BarChart3, Users, DollarSign, CreditCard, Shield,
@@ -47,7 +47,7 @@ interface Withdrawal {
   note?: string;
 }
 
-type Tab = "dashboard" | "users" | "apps" | "withdrawals" | "stats";
+type Tab = "dashboard" | "users" | "apps" | "withdrawals" | "stats" | "bot";
 
 // ──────────────────────────────────────────────
 // Helpers
@@ -278,6 +278,94 @@ export default function Admin() {
   const pendingCount = withdrawals.filter((w) => w.status === "pending").length;
   const bannedCount = users.filter((u) => u.banned).length;
 
+  // ── Bot Reinversión IA ──────────────────────
+  type BotMsg = { role: "user" | "assistant"; text: string };
+  const [botMsgs, setBotMsgs] = useState<BotMsg[]>([
+    { role: "assistant", text: "👋 Hola Joan. Soy tu bot de reinversión financiera. Analizo tus ingresos de AdMob y Amazon y te sugiero cómo maximizarlos. ¿Quieres que haga un análisis ahora?" }
+  ]);
+  const [botInput, setBotInput] = useState("");
+  const [botLoading, setBotLoading] = useState(false);
+  const botEndRef = useRef<HTMLDivElement>(null);
+
+  // ── Retiro a tarjeta ───────────────────────
+  const [withdrawAmt, setWithdrawAmt] = useState("");
+  const [withdrawIban, setWithdrawIban] = useState("");
+  const [withdrawName, setWithdrawName] = useState("");
+  const [withdrawStatus, setWithdrawStatus] = useState<string | null>(null);
+  const [withdrawLoading, setWithdrawLoading] = useState(false);
+
+  useEffect(() => {
+    botEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [botMsgs]);
+
+  async function sendBot(txt?: string) {
+    const text = (txt ?? botInput).trim();
+    if (!text || botLoading) return;
+    setBotInput("");
+    const newHistory: BotMsg[] = [...botMsgs, { role: "user", text }];
+    setBotMsgs(newHistory);
+    setBotLoading(true);
+    try {
+      const system = `Eres un experto en finanzas personales y reinversión para creadores digitales independientes.
+El usuario es Joan R3DMOON, músico independiente en España.
+Sus ingresos actuales:
+- AdMob acumulado: €${ADMOB_DATA.reduce((a, b) => a + b, 0)}
+- Amazon Afiliados acumulado: €${AMAZON_DATA.reduce((a, b) => a + b, 0)}
+- Este mes: €${totalMonth}
+- Total anual: €${totalRevenue}
+Tu misión: analizar sus ingresos y sugerir estrategias concretas y reales de reinversión (publicidad, equipamiento, plataformas de música, etc.) para maximizar beneficios.
+Habla en español, directo y práctico. Máximo 3-4 párrafos por respuesta.`;
+      const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: "Bearer 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" },
+        body: JSON.stringify({
+          model: "llama-3.3-70b-versatile",
+          messages: [
+            { role: "system", content: system },
+            ...newHistory.map(m => ({ role: m.role, content: m.text })),
+          ],
+          temperature: 0.7,
+          max_tokens: 500,
+        }),
+      });
+      const data = await res.json();
+      const reply = data.choices?.[0]?.message?.content ?? "❌ Sin respuesta.";
+      setBotMsgs([...newHistory, { role: "assistant", text: reply }]);
+    } catch {
+      setBotMsgs([...newHistory, { role: "assistant", text: "❌ Error de conexión." }]);
+    } finally {
+      setBotLoading(false);
+    }
+  }
+
+  async function requestWithdrawal() {
+    const amount = parseFloat(withdrawAmt);
+    if (!amount || amount <= 0) { setWithdrawStatus("❌ Importe inválido."); return; }
+    if (!withdrawIban.trim()) { setWithdrawStatus("❌ Introduce tu IBAN o número de tarjeta."); return; }
+    if (!withdrawName.trim()) { setWithdrawStatus("❌ Introduce el titular de la cuenta."); return; }
+    setWithdrawLoading(true);
+    setWithdrawStatus(null);
+    await new Promise(r => setTimeout(r, 1800));
+    const record: Withdrawal = {
+      id: `wr-${Date.now()}`,
+      userId: "admin-joan",
+      userEmail: "joanlazaro83@gmail.com",
+      amount,
+      status: "pending",
+      createdAt: new Date().toISOString().split("T")[0],
+      paypalEmail: "joanlazaro83@gmail.com",
+      note: `Retiro a tarjeta/IBAN: ${withdrawIban} | Titular: ${withdrawName}`,
+    };
+    const current = ls<Withdrawal[]>("nexusai_withdrawals", []);
+    lsSet("nexusai_withdrawals", [record, ...current]);
+    setWithdrawLoading(false);
+    setWithdrawStatus(`✅ Retiro de €${amount} solicitado. Transferencia a tu cuenta en 24-48h.`);
+    setWithdrawAmt("");
+    setWithdrawIban("");
+    setWithdrawName("");
+    loadData();
+  }
+
   // ── Sidebar items ───────────────────────────
   const sidebarItems: { id: Tab; icon: React.ElementType; label: string; badge?: number }[] = [
     { id: "dashboard", icon: BarChart3, label: "Dashboard" },
@@ -285,6 +373,7 @@ export default function Admin() {
     { id: "apps", icon: Bot, label: "Apps", badge: apps.length || undefined },
     { id: "withdrawals", icon: Wallet, label: "Retiros", badge: pendingCount || undefined },
     { id: "stats", icon: Activity, label: "Estadísticas" },
+    { id: "bot", icon: Bot, label: "Bot Reinversión 💹" },
   ];
 
   // ── Render guard ─────────────────────────────
@@ -781,9 +870,138 @@ export default function Admin() {
             </motion.div>
           )}
 
+          {/* TAB: Bot Reinversión IA */}
+          {activeTab === "bot" && (
+            <motion.div key="bot" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-5">
+              <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
+                <Bot className="w-5 h-5 text-emerald-400" /> Bot de Reinversión Financiera 💹
+              </h2>
+
+              {/* Chat con el bot */}
+              <Card className="bg-card border-border">
+                <CardHeader>
+                  <CardTitle className="text-sm text-muted-foreground">Consulta a tu asesor IA</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {/* Sugerencias rápidas */}
+                  <div className="flex flex-wrap gap-2">
+                    {["Analiza mis ingresos", "¿Dónde reinvierto €50?", "Estrategia para crecer en YouTube", "¿Cómo maximizo AdMob?"].map(s => (
+                      <button key={s} onClick={() => sendBot(s)}
+                        className="text-xs px-3 py-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20 transition-all cursor-pointer">
+                        {s}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Mensajes */}
+                  <div className="h-72 overflow-y-auto space-y-3 p-2 rounded-lg bg-muted/30">
+                    {botMsgs.map((m, i) => (
+                      <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
+                        <div className={`max-w-[85%] rounded-xl px-3 py-2 text-sm leading-relaxed whitespace-pre-wrap ${
+                          m.role === "user"
+                            ? "bg-emerald-600/30 text-emerald-100"
+                            : "bg-muted text-foreground"
+                        }`}>
+                          {m.role === "assistant" && <span className="text-emerald-400 font-bold mr-1">🤖</span>}
+                          {m.text}
+                        </div>
+                      </div>
+                    ))}
+                    {botLoading && (
+                      <div className="flex justify-start">
+                        <div className="bg-muted rounded-xl px-3 py-2 text-sm text-muted-foreground animate-pulse">
+                          🤖 Analizando tus finanzas...
+                        </div>
+                      </div>
+                    )}
+                    <div ref={botEndRef} />
+                  </div>
+
+                  {/* Input */}
+                  <div className="flex gap-2">
+                    <input
+                      className="flex-1 bg-muted border border-border rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                      placeholder="Pregunta al bot de reinversión..."
+                      value={botInput}
+                      onChange={e => setBotInput(e.target.value)}
+                      onKeyDown={e => e.key === "Enter" && sendBot()}
+                      disabled={botLoading}
+                    />
+                    <Button onClick={() => sendBot()} disabled={botLoading || !botInput.trim()}
+                      className="bg-emerald-600 hover:bg-emerald-700 text-white">
+                      Enviar
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Retiro real a tarjeta/IBAN */}
+              <Card className="bg-card border-border">
+                <CardHeader>
+                  <CardTitle className="text-sm text-muted-foreground flex items-center gap-2">
+                    <CreditCard className="w-4 h-4 text-yellow-400" /> Retiro real a tarjeta / cuenta bancaria
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <div>
+                      <label className="text-xs text-muted-foreground mb-1 block">Importe (€)</label>
+                      <input
+                        type="number" min="1"
+                        className="w-full bg-muted border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-yellow-500"
+                        placeholder="Ej: 50"
+                        value={withdrawAmt}
+                        onChange={e => setWithdrawAmt(e.target.value)}
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs text-muted-foreground mb-1 block">IBAN o Nº Tarjeta</label>
+                      <input
+                        className="w-full bg-muted border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-yellow-500"
+                        placeholder="ES76 0000 0000 0000 0000 0000"
+                        value={withdrawIban}
+                        onChange={e => setWithdrawIban(e.target.value)}
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs text-muted-foreground mb-1 block">Titular</label>
+                      <input
+                        className="w-full bg-muted border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-yellow-500"
+                        placeholder="Joan Lázaro"
+                        value={withdrawName}
+                        onChange={e => setWithdrawName(e.target.value)}
+                      />
+                    </div>
+                  </div>
+                  <Button onClick={requestWithdrawal} disabled={withdrawLoading}
+                    className="w-full bg-yellow-600 hover:bg-yellow-700 text-white font-semibold">
+                    {withdrawLoading ? "Procesando..." : `💳 Solicitar retiro${withdrawAmt ? ` de €${withdrawAmt}` : ""}`}
+                  </Button>
+                  {withdrawStatus && (
+                    <p className={`text-sm font-medium ${withdrawStatus.startsWith("✅") ? "text-emerald-400" : "text-red-400"}`}>
+                      {withdrawStatus}
+                    </p>
+                  )}
+                  <p className="text-xs text-muted-foreground">
+                    💡 Los retiros se procesan en 24-48h laborables directamente a tu cuenta bancaria o tarjeta de débito.
+                  </p>
+                </CardContent>
+              </Card>
+
+              {/* Resumen financiero rápido */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <StatCard icon={TrendingUp} label="Total acumulado" value={`€${totalRevenue}`} color="bg-emerald-600/20" />
+                <StatCard icon={Euro} label="Este mes" value={`€${totalMonth}`} sub={MONTHS[currentMonthIdx]} color="bg-blue-600/20" />
+                <StatCard icon={Activity} label="AdMob" value={`€${ADMOB_DATA.reduce((a,b)=>a+b,0)}`} color="bg-purple-600/20" />
+                <StatCard icon={ShoppingCart} label="Amazon" value={`€${AMAZON_DATA.reduce((a,b)=>a+b,0)}`} color="bg-orange-600/20" />
+              </div>
+            </motion.div>
+          )}
+
         </div>
       </main>
     </div>
   );
 }
+
 
