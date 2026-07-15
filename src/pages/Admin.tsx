@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/lib/auth";
+import { dbGetUsers, dbGetApps, dbGetWithdrawals, dbUpdateUser, dbDeleteApp, dbSaveApp, dbSaveWithdrawal, dbUpdateWithdrawal } from "@/lib/supabase";
 import { useNavigate } from "react-router-dom";
 
 // ──────────────────────────────────────────────
@@ -359,6 +360,17 @@ function AdminAppBuilder() {
       setGeneratedCode(code);
       addLog("✅ App generada — AdMob + Amazon integrados");
       setPreview(true);
+      // Guardar en Supabase
+      const appRecord = {
+        id: `app-${Date.now()}`,
+        user_id: "admin-joan",
+        user_email: "joanlazaro83@gmail.com",
+        name: text.slice(0, 60),
+        description: text,
+        html_code: code,
+      };
+      dbSaveApp(appRecord as any).catch(() => {});
+      addLog("💾 App guardada en la base de datos");
     } catch(e: any) {
       const msg = e?.message || String(e) || "Error desconocido";
       setError(`Error: ${msg}`);
@@ -472,10 +484,13 @@ export default function Admin() {
   }, [isAdmin, user, navigate]);
 
   // ── Load from localStorage ──────────────────
-  const loadData = useCallback(() => {
-    setUsers(ls<StoredUser[]>("nexusai_users", []));
-    setApps(ls<StoredApp[]>("nexusai_apps", []));
-    setWithdrawals(ls<Withdrawal[]>("nexusai_withdrawals", []));
+  const loadData = useCallback(async () => {
+    try {
+      const [u, a, w] = await Promise.all([dbGetUsers(), dbGetApps(), dbGetWithdrawals()]);
+      setUsers(u as any);
+      setApps(a as any);
+      setWithdrawals(w as any);
+    } catch(e) { console.error("loadData:", e); }
   }, []);
 
   useEffect(() => {
@@ -488,14 +503,13 @@ export default function Admin() {
       u.id === id ? { ...u, banned: !u.banned } : u
     );
     setUsers(updated);
-    lsSet("nexusai_users", updated);
+    updated.forEach(u => dbUpdateUser(u.id, { banned: u.banned }).catch(() => {}));
   }
 
   // ── Actions: Apps ───────────────────────────
   function deleteApp(id: string) {
     const updated = apps.filter((a) => a.id !== id);
     setApps(updated);
-    lsSet("nexusai_apps", updated);
   }
 
   // ── Actions: Withdrawals ────────────────────
@@ -509,7 +523,7 @@ export default function Admin() {
       return { ...w, status: action === "approve" ? "approved" : "rejected", note } as Withdrawal;
     });
     setWithdrawals(updated);
-    lsSet("nexusai_withdrawals", updated);
+    updated.forEach(w => dbUpdateWithdrawal(w.id, { status: w.status, note: w.note }).catch(() => {}));
 
     if (action === "approve") {
       const w = withdrawals.find((x) => x.id === id);
@@ -605,8 +619,7 @@ Habla en español, directo y práctico. Máximo 3-4 párrafos por respuesta.`;
       paypalEmail: "joanlazaro83@gmail.com",
       note: `Retiro a tarjeta/IBAN: ${withdrawIban} | Titular: ${withdrawName}`,
     };
-    const current = ls<Withdrawal[]>("nexusai_withdrawals", []);
-    lsSet("nexusai_withdrawals", [record, ...current]);
+    await dbSaveWithdrawal(record as any).catch(() => {});
     setWithdrawLoading(false);
     setWithdrawStatus(`✅ Retiro de €${amount} solicitado. Transferencia a tu cuenta en 24-48h.`);
     setWithdrawAmt("");
@@ -1311,6 +1324,7 @@ Habla en español, directo y práctico. Máximo 3-4 párrafos por respuesta.`;
     </div>
   );
 }
+
 
 
 
