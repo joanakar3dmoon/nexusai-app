@@ -27,7 +27,8 @@
     "vite": "^6.3.2",
     "@capacitor/core": "^7.0.0",
     "@capacitor/cli": "^7.0.0",
-    "@capacitor/android": "^7.0.0"
+    "@capacitor/android": "^7.0.0",
+    "@supabase/supabase-js": "^2.49.0"
   },
   "devDependencies": {
     "@types/react": "^19.1.2",
