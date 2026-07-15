@@ -608,6 +608,24 @@ export default function Admin() {
     botEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [botMsgs]);
 
+  async function guardarReinversionDirecta(concepto: string, importe: number) {
+    if (!concepto || !importe) return;
+    setReinLoading(true);
+    const record = {
+      id: `rein-${Date.now()}`,
+      userId: "admin",
+      amount: importe,
+      status: "approved" as const,
+      note: `reinversion:${concepto}`,
+      createdAt: new Date().toISOString(),
+    };
+    await dbSaveWithdrawal(record);
+    setReinversiones(prev => [...prev, { id: record.id, concepto, importe, fecha: record.createdAt }]);
+    setReinMsg(`✅ "${concepto}" guardado (€${importe})`);
+    setReinLoading(false);
+    setTimeout(() => setReinMsg(""), 3000);
+  }
+
   async function sendBot(txt?: string) {
     const text = (txt ?? botInput).trim();
     if (!text || botLoading) return;
@@ -616,15 +634,29 @@ export default function Admin() {
     setBotMsgs(newHistory);
     setBotLoading(true);
     try {
-      const system = `Eres un experto en finanzas personales y reinversión para creadores digitales independientes.
-El usuario es Joan R3DMOON, músico independiente en España.
+      // Detectar si el mensaje contiene una cantidad de dinero
+      const amountMatch = text.match(/([0-9]+(?:[.,][0-9]+)?)\s*(?:€|euros?|eur)/i) 
+                       || text.match(/(?:invertir?|gastar?|tengo|dispongo|quiero reinvertir?)\s+([0-9]+(?:[.,][0-9]+)?)/i);
+      const detectedAmount = amountMatch ? parseFloat(amountMatch[1].replace(',','.')) : null;
+
+      const system = `Eres un asesor financiero experto en reinversión para músicos y creadores digitales independientes.
+El usuario es Joan R3DMOON, músico independiente en España que genera ingresos pasivos con apps móviles (AdMob) y Amazon Afiliados.
 Sus ingresos actuales:
 - AdMob acumulado: €${ADMOB_DATA.reduce((a, b) => a + b, 0)}
 - Amazon Afiliados acumulado: €${AMAZON_DATA.reduce((a, b) => a + b, 0)}
 - Este mes: €${totalMonth}
 - Total anual: €${totalRevenue}
-Tu misión: analizar sus ingresos y sugerir estrategias concretas y reales de reinversión (publicidad, equipamiento, plataformas de música, etc.) para maximizar beneficios.
-Habla en español, directo y práctico. Máximo 3-4 párrafos por respuesta.`;
+Reinversiones ya registradas: ${reinversiones.map(r => r.concepto + " €" + r.importe).join(", ") || "ninguna aún"}
+
+INSTRUCCIONES CLAVE:
+- Si el usuario menciona una cantidad concreta (ej: "tengo 50€", "quiero invertir 100"), SIEMPRE responde con un plan de reinversión detallado dividido en partidas.
+- Usa este formato EXACTO para cada partida sugerida:
+  💡 [CONCEPTO] → €[IMPORTE]
+  (ejemplo: 💡 Publicidad Facebook Ads → €20)
+- Al final añade una línea: TOTAL PLAN: €[suma total]
+- Prioriza: publicidad en redes para música, equipamiento (cables, interfaces, etc.), plataformas de distribución musical (DistroKid, etc.), hosting/dominio, herramientas de creación.
+- Si no menciona cantidad, haz preguntas para entender cuánto tiene disponible.
+- Habla en español, tono directo y práctico. Máximo 5-6 líneas.`;
       const res = await fetch("https://api.llm7.io/v1/chat/completions", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: "Bearer free" },
@@ -640,7 +672,14 @@ Habla en español, directo y práctico. Máximo 3-4 párrafos por respuesta.`;
       });
       const data = await res.json();
       const reply = data.choices?.[0]?.message?.content ?? "❌ Sin respuesta.";
-      setBotMsgs([...newHistory, { role: "assistant", text: reply }]);
+      // Detectar partidas del plan en la respuesta
+      const partidas: Array<{concepto:string;importe:number}> = [];
+      const lineRe = /💡\s*(.+?)\s*→\s*€\s*([0-9]+(?:[.,][0-9]+)?)/g;
+      let m;
+      while ((m = lineRe.exec(reply)) !== null) {
+        partidas.push({ concepto: m[1].trim(), importe: parseFloat(m[2].replace(',','.')) });
+      }
+      setBotMsgs([...newHistory, { role: "assistant", text: reply, partidas } as any]);
     } catch {
       setBotMsgs([...newHistory, { role: "assistant", text: "❌ Error de conexión." }]);
     } finally {
@@ -1302,13 +1341,33 @@ Habla en español, directo y práctico. Máximo 3-4 párrafos por respuesta.`;
                   <div className="h-72 overflow-y-auto space-y-3 p-2 rounded-lg bg-muted/30">
                     {botMsgs.map((m, i) => (
                       <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
-                        <div className={`max-w-[85%] rounded-xl px-3 py-2 text-sm leading-relaxed whitespace-pre-wrap ${
+                        <div className={`max-w-[90%] rounded-xl px-3 py-2 text-sm ${
                           m.role === "user"
                             ? "bg-emerald-600/30 text-emerald-100"
                             : "bg-muted text-foreground"
                         }`}>
                           {m.role === "assistant" && <span className="text-emerald-400 font-bold mr-1">🤖</span>}
-                          {m.text}
+                          <span className="leading-relaxed whitespace-pre-wrap">{m.text}</span>
+                          {(m as any).partidas && (m as any).partidas.length > 0 && (
+                            <div className="mt-3 space-y-2 border-t border-emerald-500/20 pt-2">
+                              <p className="text-xs text-emerald-400 font-semibold mb-1">📌 Guardar en reinversiones:</p>
+                              {(m as any).partidas.map((p: any, pi: number) => (
+                                <div key={pi} className="flex items-center justify-between bg-emerald-500/10 border border-emerald-500/20 rounded-lg px-2 py-1.5">
+                                  <span className="text-xs text-white/80 flex-1 mr-2">{p.concepto}<br/><span className="text-emerald-400 font-bold">€{p.importe}</span></span>
+                                  <button
+                                    onClick={() => guardarReinversionDirecta(p.concepto, p.importe)}
+                                    className="text-xs bg-emerald-600 hover:bg-emerald-500 text-white px-2 py-1 rounded-md transition-colors whitespace-nowrap"
+                                  >+ Guardar</button>
+                                </div>
+                              ))}
+                              {(m as any).partidas.length > 1 && (
+                                <button
+                                  onClick={async () => { for (const p of (m as any).partidas) await guardarReinversionDirecta(p.concepto, p.importe); }}
+                                  className="w-full text-xs bg-violet-600 hover:bg-violet-500 text-white px-3 py-1.5 rounded-lg font-bold transition-colors"
+                                >💾 Guardar todo el plan (€{(m as any).partidas.reduce((a:number,p:any)=>a+p.importe,0).toFixed(0)})</button>
+                              )}
+                            </div>
+                          )}
                         </div>
                       </div>
                     ))}
