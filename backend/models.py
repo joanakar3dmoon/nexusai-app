@@ -25,6 +25,9 @@ class User(Base):
     email = Column(String, unique=True, nullable=False, index=True)
     name = Column(String, default="")
     role = Column(String, default="user")  # "admin" or "user"
+    plan = Column(String, default="free")  # "free" | "premium"
+    plan_expires_at = Column(DateTime, nullable=True)  # None = sin expiración / vitalicio
+    paypal_subscription_id = Column(String, default="")  # ID suscripción PayPal
     credits = Column(Integer, default=10)
     balance = Column(Float, default=0.0)  # saldo acumulado
     total_earned = Column(Float, default=0.0)
