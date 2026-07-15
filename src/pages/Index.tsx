@@ -57,8 +57,8 @@ const testimonials = [
 // ============================================================
 // PLAYGROUND REAL — modelos Groq
 // ============================================================
-const GROQ_KEY = "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";
-const GROQ_URL = "https://api.groq.com/openai/v1/chat/completions";
+const GROQ_KEY = "free";
+const GROQ_URL = "https://api.llm7.io/v1/chat/completions";
 
 const PLAY_MODELS = [
   { id: "llama", label: "Llama 3.3 70B", color: "text-violet-300 border-violet-500/30 bg-violet-500/10", url: GROQ_URL, model: "llama-3.3-70b-versatile", key: GROQ_KEY },
@@ -419,14 +419,20 @@ export default function Index() {
                 </ul>
                 <Unauthenticated>
                   <SignInButton mode="modal">
-                    <Button className={`w-full font-bold py-5 rounded-xl ${plan.highlighted ? "bg-gradient-to-r from-violet-600 to-cyan-600 hover:from-violet-500 hover:to-cyan-500 text-white border-0 shadow-lg shadow-violet-500/25" : "bg-white/5 hover:bg-white/10 text-white border border-white/10"}`}>
+                    <Button onClick={() => navigate("/dashboard")} className={`w-full font-bold py-5 rounded-xl ${plan.highlighted ? "bg-gradient-to-r from-violet-600 to-cyan-600 hover:from-violet-500 hover:to-cyan-500 text-white border-0 shadow-lg shadow-violet-500/25" : "bg-white/5 hover:bg-white/10 text-white border border-white/10"}`}>
                       {plan.cta}{plan.highlighted && <ChevronRight className="w-4 h-4 ml-1" />}
                     </Button>
                   </SignInButton>
                 </Unauthenticated>
                 <Authenticated>
-                  <Button onClick={() => navigate("/dashboard")} className={`w-full font-bold py-5 rounded-xl ${plan.highlighted ? "bg-gradient-to-r from-violet-600 to-cyan-600 text-white border-0" : "bg-white/5 hover:bg-white/10 text-white border border-white/10"}`}>
-                    {plan.highlighted ? "Activar Pro" : plan.cta}
+                  <Button onClick={() => {
+                    if (plan.highlighted) {
+                      window.open("https://www.paypal.com/cgi-bin/webscr?cmd=_xclick-subscriptions&business=joanlazaro83%40gmail.com&item_name=NexusAI+Pro&a3=29&p3=1&t3=M&src=1&sra=1&currency_code=EUR", "_blank");
+                    } else {
+                      navigate("/dashboard");
+                    }
+                  }} className={`w-full font-bold py-5 rounded-xl ${plan.highlighted ? "bg-gradient-to-r from-violet-600 to-cyan-600 text-white border-0" : "bg-white/5 hover:bg-white/10 text-white border border-white/10"}`}>
+                    {plan.highlighted ? "💳 Activar Pro — €29/mes" : plan.cta}
                   </Button>
                 </Authenticated>
               </motion.div>
