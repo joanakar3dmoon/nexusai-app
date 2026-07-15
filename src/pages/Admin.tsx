@@ -165,14 +165,14 @@ function StatCard({
 // Main Component
 // ──────────────────────────────────────────────
 // ── Constantes compartidas para los componentes del Creator ──
-const GROQ_KEY = "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";
+const GROQ_KEY = "free";
 const GROQ_URL = "https://api.llm7.io/v1/chat/completions";
 
 const PLAY_MODELS = [
-  { id: "llama", label: "Llama 3.3 70B", color: "text-violet-300 border-violet-500/30 bg-violet-500/10", model: "codestral-latest" },
-  { id: "deepseek", label: "DeepSeek R1", color: "text-emerald-300 border-emerald-500/30 bg-emerald-500/10", model: "deepseek-r1-distill-llama-70b" },
-  { id: "mixtral", label: "Mixtral 8x7B", color: "text-cyan-300 border-cyan-500/30 bg-cyan-500/10", model: "codestral-latest" },
-  { id: "gemma", label: "Gemma 2 9B", color: "text-pink-300 border-pink-500/30 bg-pink-500/10", model: "gemma2-9b-it" },
+  { id: "llama", label: "Codestral IA", color: "text-violet-300 border-violet-500/30 bg-violet-500/10", model: "codestral-latest" },
+  { id: "deepseek", label: "Codestral Pro", color: "text-emerald-300 border-emerald-500/30 bg-emerald-500/10", model: "codestral-latest" },
+  { id: "mixtral", label: "Codestral Fast", color: "text-cyan-300 border-cyan-500/30 bg-cyan-500/10", model: "codestral-latest" },
+  { id: "gemma", label: "Codestral Max", color: "text-pink-300 border-pink-500/30 bg-pink-500/10", model: "codestral-latest" },
 ];
 
 type ChatMsg = { role: "user" | "assistant"; content: string; model?: string };
@@ -274,9 +274,9 @@ function AdminPlayground() {
 
 // ── Generador de Apps incrustado en Admin ──────────────────
 const GROQ_MODELS = [
-  "meta-llama/llama-4-scout-17b-16e-instruct",
   "codestral-latest",
-  "deepseek-r1-distill-llama-70b",
+  "codestral-latest",
+  "codestral-latest",
   "codestral-latest",
   "codestral-latest",
 ];
