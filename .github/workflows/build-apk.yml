@@ -11,7 +11,7 @@ on:
       - 'vite.config.ts'
 
 permissions:
-  contents: writ
+e
 
 jobs:
   build-apk:
