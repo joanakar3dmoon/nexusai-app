@@ -9,7 +9,7 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { useAuth } from "@/lib/auth";
+import { useAuth, isPremium, showAds, hasCredits, FREE_CREDITS, ADMOB_APP_ID, ADMOB_BANNER } from "@/lib/auth";
 import { useNavigate } from "react-router-dom";
 
 // ---- Tipos ----
@@ -196,6 +196,21 @@ const AMAZON_PRODUCTS = [
 
 export default function Dashboard() {
   const { user, signOut, isAdmin } = useAuth();
+
+  // Cargar AdMob script solo para usuarios free
+  React.useEffect(() => {
+    if (user && user.plan === "free") {
+      const existing = document.getElementById("admob-script");
+      if (!existing) {
+        const s = document.createElement("script");
+        s.id = "admob-script";
+        s.async = true;
+        s.src = \`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=\${ADMOB_APP_ID}\`;
+        s.crossOrigin = "anonymous";
+        document.head.appendChild(s);
+      }
+    }
+  }, [user]);
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
@@ -213,7 +228,23 @@ export default function Dashboard() {
 
   const addLog = (msg: string) => setStatusLog(prev => [...prev, `[${new Date().toLocaleTimeString()}] ${msg}`]);
 
+  // Banner AdMob — solo usuarios free
+  const AdmobBanner = () => userShowAds ? (
+    <div className="fixed bottom-16 left-0 right-0 z-40 flex justify-center bg-black/80 py-1 border-t border-white/5">
+      <ins className="adsbygoogle"
+        style={{ display: "inline-block", width: "320px", height: "50px" }}
+        data-ad-client={ADMOB_APP_ID}
+        data-ad-slot="8825147276"
+        data-ad-format="auto" />
+    </div>
+  ) : null;
+
   const handleGenerate = async () => {
+    // Bloquear si free sin créditos
+    if (!userIsPremium && (user?.credits ?? 0) <= 0) {
+      alert("⚠️ Has agotado tus 5 créditos gratuitos.\n\nSuscríbete al plan Premium para créditos ilimitados y sin anuncios.\n\n👉 Contacta: joanlazaro83@gmail.com");
+      return;
+    }
     if (!prompt.trim() || generating) return;
     // Muro de créditos
     const userCredits = user?.credits ?? 0;
@@ -269,7 +300,10 @@ export default function Dashboard() {
     a.click();
   };
 
-  const credits = user?.credits ?? 100;
+  const credits      = user?.credits ?? FREE_CREDITS;
+  const userIsPremium = isPremium(user);
+  const userShowAds   = showAds(user);
+  const userHasCredits = hasCredits(user);
 
   const sidebarItems: { id: TabId; icon: React.ElementType; label: string; badge?: string }[] = [
     { id: "generator", icon: Code2,          label: "Generador IA" },
@@ -571,18 +605,18 @@ export default function Dashboard() {
                 <CardContent>
                   <div className="flex items-center justify-between mb-4">
                     <div>
-                      <h3 className="font-medium">Plan Free</h3>
+                      <h3 className="font-medium">{userIsPremium ? "✨ Plan Premium" : "Plan Free"}</h3>
                       <p className="text-xs text-muted-foreground">{credits} créditos disponibles</p>
                     </div>
                     <Badge className="bg-violet-500/10 text-violet-400 border-violet-500/20">Activo</Badge>
                   </div>
                   <div className="w-full bg-secondary rounded-full h-2 mb-2">
-                    <div className="bg-primary h-2 rounded-full transition-all" style={{ width: `${Math.min(100, (credits / 100) * 100)}%` }} />
+                    <div className="bg-primary h-2 rounded-full transition-all" style={{ width: `${Math.min(100, (credits / FREE_CREDITS) * 100)}%` }} />
                   </div>
-                  <p className="text-xs text-muted-foreground">{credits} de 100 créditos</p>
+                  <p className="text-xs text-muted-foreground">{credits} de {userIsPremium ? "∞" : FREE_CREDITS} créditos</p>
                   <div className="mt-4 p-3 rounded-lg bg-violet-500/5 border border-violet-500/20">
                     <p className="text-xs text-muted-foreground">
-                      💡 <strong>Plan Pro (€29/mes):</strong> Créditos ilimitados, apps ilimitadas, retiros a PayPal.
+                      {userIsPremium ? "✅ Tienes créditos ilimitados y sin anuncios." : "💡 ¡Pásate a Premium por €9.99/mes! Créditos ilimitados + sin anuncios. Escríbenos: joanlazaro83@gmail.com"}
                     </p>
                   </div>
                 </CardContent>
