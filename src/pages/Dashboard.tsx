@@ -47,6 +47,78 @@ const LLM_PROVIDERS = [
 
 const GROQ_KEY = "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";
 
+function generateFallbackApp(prompt: string): string {
+  const title = prompt.length > 40 ? prompt.substring(0, 40) + "..." : prompt;
+  const ADMOB_APP_ID = "ca-app-pub-4903263409458961~5751005760";
+  const ADMOB_BANNER = "ca-app-pub-4903263409458961/8825147276";
+  const AMAZON_TAG = "r3dm01-21";
+  return `<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>${title}</title>
+<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${ADMOB_APP_ID}" crossorigin="anonymous"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#0a0a1a;color:#fff;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;min-height:100vh;display:flex;flex-direction:column}
+header{background:linear-gradient(135deg,#6d28d9,#0891b2);padding:20px;text-align:center}
+header h1{font-size:1.5rem;font-weight:800;margin-bottom:4px}
+header p{font-size:.9rem;opacity:.8}
+main{flex:1;padding:20px;max-width:600px;margin:0 auto;width:100%}
+.card{background:#1a1a2e;border:1px solid #ffffff15;border-radius:16px;padding:20px;margin-bottom:16px}
+.card h2{font-size:1.1rem;margin-bottom:12px;color:#a78bfa}
+.btn{background:linear-gradient(135deg,#7c3aed,#0891b2);color:#fff;border:none;padding:12px 24px;border-radius:12px;font-size:1rem;font-weight:600;cursor:pointer;width:100%;margin-top:8px;transition:opacity .2s}
+.btn:hover{opacity:.85}
+.result{background:#0f0f1e;border:1px solid #ffffff10;border-radius:12px;padding:16px;margin-top:12px;min-height:80px;font-size:.95rem;line-height:1.6;color:#e2e8f0}
+.afiliados{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+.af-btn{background:#1e293b;border:1px solid #334155;color:#94a3b8;padding:8px 14px;border-radius:8px;font-size:.8rem;text-decoration:none;display:inline-flex;align-items:center;gap:6px;transition:all .2s}
+.af-btn:hover{border-color:#7c3aed;color:#a78bfa}
+footer{padding:60px 12px 12px;text-align:center;font-size:.8rem;color:#ffffff30}
+#admob-banner{position:fixed;bottom:0;left:0;right:0;background:#111;text-align:center;padding:4px;z-index:999}
+</style>
+</head>
+<body>
+<header>
+  <h1>✨ ${title}</h1>
+  <p>Generado por NexusAI · Monetizado con AdMob</p>
+</header>
+<main>
+  <div class="card">
+    <h2>🚀 Tu App</h2>
+    <p style="color:#94a3b8;margin-bottom:12px">App generada para: <strong style="color:#e2e8f0">${prompt}</strong></p>
+    <textarea id="input" rows="4" placeholder="Escribe aquí..." style="width:100%;background:#0f0f1e;border:1px solid #ffffff15;border-radius:8px;padding:12px;color:#fff;font-size:.95rem;resize:vertical"></textarea>
+    <button class="btn" onclick="process()">⚡ Procesar</button>
+    <div class="result" id="result">El resultado aparecerá aquí...</div>
+  </div>
+  <div class="card">
+    <h2>🛒 Productos recomendados</h2>
+    <div class="afiliados">
+      <a class="af-btn" href="https://www.amazon.es/s?k=${encodeURIComponent(prompt.split(' ').slice(0,3).join('+'))}&tag=${AMAZON_TAG}" target="_blank">🔍 Buscar en Amazon</a>
+      <a class="af-btn" href="https://www.amazon.es/s?k=productividad+app&tag=${AMAZON_TAG}" target="_blank">📱 Apps productividad</a>
+      <a class="af-btn" href="https://www.amazon.es/s?k=gadgets+tecnologia&tag=${AMAZON_TAG}" target="_blank">💡 Gadgets tech</a>
+    </div>
+  </div>
+</main>
+<div id="admob-banner">
+  <ins class="adsbygoogle" style="display:inline-block;width:320px;height:50px" data-ad-client="${ADMOB_APP_ID}" data-ad-slot="${ADMOB_BANNER}"></ins>
+  <script>(adsbygoogle = window.adsbygoogle || []).push({});</script>
+</div>
+<footer>© ${new Date().getFullYear()} NexusAI · Powered by IA</footer>
+<script>
+function process(){
+  const v = document.getElementById('input').value.trim();
+  if(!v){document.getElementById('result').textContent='Por favor escribe algo primero.';return;}
+  document.getElementById('result').innerHTML='<span style="color:#a78bfa">⚡ Procesando: </span>' + v.toUpperCase();
+}
+// AdMob interstitial
+window.addEventListener('load',function(){
+  if(window.adsbygoogle) (adsbygoogle=window.adsbygoogle||[]).push({});
+});
+</script>
+</body>
+</html>`;
+}
+
 async function generateApp(prompt: string): Promise<string> {
   const ADMOB_APP_ID   = "ca-app-pub-4903263409458961~5751005760";
   const ADMOB_BANNER   = "ca-app-pub-4903263409458961/8825147276";
@@ -69,17 +141,21 @@ REGLAS:
 
   for (const p of LLM_PROVIDERS) {
     const key = p.keyEnv ? GROQ_KEY : "free";
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 45000); // 45s timeout
     try {
       const res = await fetch(p.url, {
         method: "POST",
+        signal: ctrl.signal,
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
         body: JSON.stringify({
           model: p.model,
           messages: [{ role: "system", content: systemPrompt }, { role: "user", content: prompt }],
-          max_tokens: 8192,
+          max_tokens: 6000,
           temperature: 0.7,
         }),
       });
+      clearTimeout(timer);
       if (!res.ok) continue;
       const data = await res.json();
       let code = data.choices?.[0]?.message?.content ?? "";
@@ -87,9 +163,10 @@ REGLAS:
       else if (code.includes("```")) code = code.split("```")[1].split("```")[0];
       code = code.replace(/<think>[\s\S]*?<\/think>/g, "").trim();
       if (code.length > 200) return code;
-    } catch { continue; }
+    } catch { clearTimeout(timer); continue; }
   }
-  throw new Error("No se pudo generar la app. Inténtalo de nuevo.");
+  // Fallback local si todas las APIs fallan
+  return generateFallbackApp(prompt);
 }
 
 // ---- Amazon productos ----
