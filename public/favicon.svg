@@ -1,6 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
-  <rect width="100" height="100" fill="#0a0a0a" rx="20"/>
-  <text x="50" y="35" text-anchor="middle" font-family="monospace" font-weight="900" font-size="20" fill="#d21919">NexusAI</text>
-  <line x1="12" y1="48" x2="88" y2="48" stroke="#b40f0f" stroke-width="1.5"/>
-  <text x="50" y="70" text-anchor="middle" font-family="monospace" font-weight="900" font-size="17" fill="#ff3737">r3dm/joan</text>
+  <rect width="100" height="100" fill="#080808" rx="18"/>
+  <text x="8" y="42" font-family="monospace" font-weight="900" font-size="26" fill="#ff1e1e">N</text>
+  <text x="30" y="42" font-family="monospace" font-weight="900" font-size="26" fill="#f0f0f0">exusAI</text>
+  <line x1="8" y1="52" x2="92" y2="52" stroke="#c81414" stroke-width="2"/>
+  <text x="50" y="76" text-anchor="middle" font-family="monospace" font-weight="900" font-size="20" fill="#ff2d2d">r3dm/joan</text>
 </svg>
