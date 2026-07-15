@@ -169,10 +169,10 @@ function localApp(name: string, prompt: string): string {
   const key = p.includes("tarea") || p.includes("todo") || p.includes("productividad") ? "tareas"
     : p.includes("receta") || p.includes("cocina") || p.includes("comida") || p.includes("ingrediente") ? "recetas"
     : p.includes("tienda") || p.includes("shop") || p.includes("ropa") || p.includes("product") || p.includes("carrito") ? "tienda"
-    : p.includes("gimnasio") || p.includes("ejercicio") || p.includes("entrena") || p.includes("fitness") || p.includes("rutina") ? "gimnasio"
-    : p.includes("finanza") || p.includes("gasto") || p.includes("presupuesto") || p.includes("dinero") || p.includes("ahorro") ? "finanzas"
-    : p.includes("música") || p.includes("musica") || p.includes("cancion") || p.includes("playlist") || p.includes("artista") ? "musica"
-    : p.includes("nota") || p.includes("apunte") || p.includes("diario") ? "notas"
+    : p.includes("gimnasio") || p.includes("ejercicio") || p.includes("entrena") || p.includes("fitness") || p.includes("rutina") || p.includes("workout") || p.includes("gym") ? "gimnasio"
+    : p.includes("finanza") || p.includes("gasto") || p.includes("presupuesto") || p.includes("dinero") || p.includes("ahorro") || p.includes("finance") || p.includes("budget") ? "finanzas"
+    : p.includes("música") || p.includes("musica") || p.includes("cancion") || p.includes("playlist") || p.includes("artista") || p.includes("music") ? "musica"
+    : p.includes("nota") || p.includes("apunte") || p.includes("diario") || p.includes("note") ? "notas"
     : "default";
 
   return categories[key]();
@@ -1693,7 +1693,8 @@ IMPORTANTE: Genera datos de ejemplo MUY específicos para esta app (nombres, val
         addLog("✅ HTML extraído correctamente");
       } catch (e: any) {
         addLog(`⚠️ IA: ${e.message} — usando app prediseñada`);
-        finalHtml = localApp(meta.name, prompt);
+        // Pasar también la categoría del análisis para mejorar la detección
+        finalHtml = localApp(meta.name, prompt + " " + (meta.category || ""));
         usedFallback = true;
       }
       setStep("generate", "done");
