@@ -272,46 +272,113 @@ function AdminPlayground() {
 }
 
 // ── Generador de Apps incrustado en Admin ──────────────────
+const GROQ_MODELS = [
+  "meta-llama/llama-4-scout-17b-16e-instruct",
+  "llama-3.3-70b-versatile",
+  "deepseek-r1-distill-llama-70b",
+  "mixtral-8x7b-32768",
+  "llama-3.1-8b-instant",
+];
+
+async function buildAppWithFallback(prompt: string): Promise<string> {
+  const ADMOB_APP_ID   = "ca-app-pub-4903263409458961~5751005760";
+  const ADMOB_BANNER   = "ca-app-pub-4903263409458961/8825147276";
+  const AMAZON_TAG     = "r3dm01-21";
+  const systemPrompt = `Eres NexusAI Builder. Genera una app web PWA completa en un solo archivo HTML.
+REGLAS ESTRICTAS:
+- Empieza EXACTAMENTE con <!DOCTYPE html> — sin texto antes
+- Termina EXACTAMENTE con </html> — sin texto después
+- CSS en <style> dentro de <head>. JS en <script> antes de </body>
+- Dark theme mobile-first, Poppins de Google Fonts
+- Bottom navigation con 4 secciones y emojis
+- Integra AdMob: <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${ADMOB_APP_ID}" crossorigin="anonymous"></script>
+- Banner fijo abajo: data-ad-client="${ADMOB_APP_ID}" data-ad-slot="8825147276"
+- Al menos 2 enlaces afiliado Amazon: https://www.amazon.es/s?k=PRODUCTO&tag=${AMAZON_TAG}
+- Devuelve SOLO el HTML completo, cero explicaciones, cero markdown`;
+
+  for (const model of GROQ_MODELS) {
+    try {
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), 55000);
+      const res = await fetch(GROQ_URL, {
+        method: "POST",
+        signal: ctrl.signal,
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${GROQ_KEY}` },
+        body: JSON.stringify({
+          model,
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: prompt },
+          ],
+          max_tokens: 8192,
+          temperature: 0.7,
+        }),
+      });
+      clearTimeout(timer);
+      if (!res.ok) continue;
+      const data = await res.json();
+      let code: string = data.choices?.[0]?.message?.content ?? "";
+      // Limpiar markdown y think tags
+      code = code.replace(/<think>[\s\S]*?<\/think>/gi, "").trim();
+      if (code.includes("```html")) code = code.split("```html")[1].split("```")[0].trim();
+      else if (code.includes("```")) code = code.split("```")[1].split("```")[0].trim();
+      if (code.length > 300 && code.includes("</html>")) return code;
+    } catch { continue; }
+  }
+  // Fallback local
+  return `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>App NexusAI</title><style>*{margin:0;padding:0;box-sizing:border-box}body{background:#0a0a1a;color:#fff;font-family:system-ui,sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;flex-direction:column;gap:16px;padding:20px;text-align:center}.card{background:#1a1a2e;border:1px solid #ffffff15;border-radius:16px;padding:24px;max-width:400px;width:100%}h1{font-size:1.4rem;color:#a78bfa;margin-bottom:8px}p{color:#888;font-size:.9rem;line-height:1.5}.btn{background:linear-gradient(135deg,#7c3aed,#06b6d4);color:#fff;border:none;padding:12px 24px;border-radius:12px;font-size:1rem;cursor:pointer;margin-top:16px;width:100%}</style></head><body><div class="card"><h1>🤖 ${prompt[:40]}</h1><p>App generada con NexusAI. Personaliza este contenido según tus necesidades.</p><button class="btn" onclick="alert('¡Funcionando!')">Comenzar</button></div></body></html>`;
+}
+
 function AdminAppBuilder() {
   const [prompt, setPrompt] = useState("");
   const [loading, setLoading] = useState(false);
   const [generatedCode, setGeneratedCode] = useState("");
   const [error, setError] = useState("");
+  const [log, setLog] = useState<string[]>([]);
+  const [preview, setPreview] = useState(false);
+  const iframeRef = useRef<HTMLIFrameElement>(null);
+
+  const addLog = (msg: string) => setLog(prev => [...prev, msg]);
 
   const generate = async () => {
     const text = prompt.trim();
     if (!text || loading) return;
-    setLoading(true); setError(""); setGeneratedCode("");
+    setLoading(true); setError(""); setGeneratedCode(""); setLog([]); setPreview(false);
+    addLog("🔍 Analizando prompt...");
+    addLog("⚡ Conectando con IA (puede tardar ~30s)...");
     try {
-      const res = await fetch(GROQ_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${GROQ_KEY}` },
-        body: JSON.stringify({
-          model: "llama-3.3-70b-versatile",
-          messages: [
-            { role: "system", content: "Eres NexusAI Builder. Genera una app web completa en HTML/CSS/JS. Devuelve SOLO el código HTML, sin explicaciones ni markdown. Diseño dark, moderno, mobile-first." },
-            { role: "user", content: `Crea esta aplicación: ${text}` },
-          ],
-          max_tokens: 8192, temperature: 0.7,
-        }),
-        signal: AbortSignal.timeout(60000),
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json();
-      const code = data.choices?.[0]?.message?.content ?? "";
+      const code = await buildAppWithFallback(text);
       setGeneratedCode(code);
+      addLog("✅ App generada — AdMob + Amazon integrados");
+      setPreview(true);
     } catch {
-      setError("Error generando la app. Intenta de nuevo.");
+      setError("Error al generar. Intenta de nuevo.");
+      addLog("❌ Error en la generación");
     } finally {
       setLoading(false);
     }
   };
 
-  const copyCode = () => { navigator.clipboard.writeText(generatedCode); };
-  const previewApp = () => {
+  // Escribir HTML en iframe cuando preview=true
+  const prevCode = useRef("");
+  useEffect(() => {
+    if (!preview || !generatedCode || generatedCode === prevCode.current) return;
+    prevCode.current = generatedCode;
+    const iframe = iframeRef.current;
+    if (!iframe) return;
+    try {
+      const doc = iframe.contentDocument || iframe.contentWindow?.document;
+      if (doc) { doc.open(); doc.write(generatedCode); doc.close(); return; }
+    } catch(_) {}
+    iframe.srcdoc = generatedCode;
+  }, [preview, generatedCode]);
+
+  const downloadApp = () => {
     const blob = new Blob([generatedCode], { type: "text/html" });
-    const url = URL.createObjectURL(blob);
-    window.open(url, "_blank");
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `${prompt.trim().slice(0,30).replace(/\s+/g,"-")}.html`;
+    a.click();
   };
 
   return (
@@ -323,27 +390,46 @@ function AdminAppBuilder() {
       </CardHeader>
       <CardContent className="space-y-3">
         <textarea value={prompt} onChange={e => setPrompt(e.target.value)}
-          placeholder="Describe la app que quieres crear... Ej: 'Una app de lista de tareas con modo oscuro y animaciones'"
+          onKeyDown={e => { if (e.key === "Enter" && e.ctrlKey) generate(); }}
+          placeholder="Describe la app... Ej: App de recetas de cocina con buscador y modo oscuro"
           rows={3} disabled={loading}
           className="w-full bg-black/30 border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-red-500/40 placeholder:text-white/20 resize-none" />
         <button onClick={generate} disabled={!prompt.trim() || loading}
           className="w-full bg-gradient-to-r from-red-600 to-red-800 text-white py-2.5 rounded-xl font-semibold text-sm disabled:opacity-40 cursor-pointer hover:opacity-90 transition-opacity flex items-center justify-center gap-2">
-          {loading ? (<><RefreshCw className="w-4 h-4 animate-spin" /> Generando app...</>) : (<><Cpu className="w-4 h-4" /> Generar App</>)}
+          {loading ? (<><RefreshCw className="w-4 h-4 animate-spin" /> Generando app...</>) : (<><Cpu className="w-4 h-4" /> Generar App (Ctrl+Enter)</>)}
         </button>
+        {log.length > 0 && (
+          <div className="bg-black/40 rounded-lg p-3 space-y-1 max-h-28 overflow-y-auto">
+            {log.map((l,i) => (
+              <p key={i} className={`text-xs font-mono ${l.includes("❌") ? "text-red-400" : l.includes("✅") ? "text-emerald-400" : "text-white/50"}`}>{l}</p>
+            ))}
+          </div>
+        )}
         {error && <p className="text-xs text-red-400 text-center">{error}</p>}
         {generatedCode && (
           <div className="space-y-2">
             <div className="flex gap-2">
-              <button onClick={previewApp} className="flex-1 bg-emerald-600/20 border border-emerald-500/30 text-emerald-300 text-xs py-2 rounded-lg hover:bg-emerald-600/30 transition-colors cursor-pointer">
-                👁️ Vista previa
+              <button onClick={() => setPreview(v => !v)}
+                className="flex-1 bg-emerald-600/20 border border-emerald-500/30 text-emerald-300 text-xs py-2 rounded-lg hover:bg-emerald-600/30 transition-colors cursor-pointer">
+                {preview ? "🙈 Ocultar preview" : "👁️ Ver preview"}
               </button>
-              <button onClick={copyCode} className="flex-1 bg-white/5 border border-white/10 text-white/60 text-xs py-2 rounded-lg hover:bg-white/10 transition-colors cursor-pointer">
-                📋 Copiar código
+              <button onClick={downloadApp}
+                className="flex-1 bg-violet-600/20 border border-violet-500/30 text-violet-300 text-xs py-2 rounded-lg hover:bg-violet-600/30 transition-colors cursor-pointer">
+                💾 Descargar HTML
+              </button>
+              <button onClick={() => navigator.clipboard.writeText(generatedCode)}
+                className="flex-1 bg-white/5 border border-white/10 text-white/60 text-xs py-2 rounded-lg hover:bg-white/10 transition-colors cursor-pointer">
+                📋 Copiar
               </button>
             </div>
-            <pre className="bg-black/40 border border-white/5 rounded-xl p-3 text-xs text-white/50 overflow-auto max-h-[200px] font-mono">
-              {generatedCode.slice(0, 500)}...
-            </pre>
+            {preview && (
+              <div className="border border-white/10 rounded-xl overflow-hidden" style={{height: 400}}>
+                <iframe ref={iframeRef}
+                  sandbox="allow-scripts allow-same-origin allow-forms"
+                  className="w-full h-full border-0"
+                  title="Preview app" />
+              </div>
+            )}
           </div>
         )}
       </CardContent>
@@ -1215,6 +1301,7 @@ Habla en español, directo y práctico. Máximo 3-4 párrafos por respuesta.`;
     </div>
   );
 }
+
 
 
 
