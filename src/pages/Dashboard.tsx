@@ -53,11 +53,11 @@ async function saveApps(apps: AppRecord[]) {
 
 // ---- Proveedores LLM (solo para el generador) ----
 const LLM_PROVIDERS = [
-  { id: "groq",     url: "https://api.llm7.io/v1/chat/completions", model: "codestral-latest", keyEnv: "free" },
-  { id: "deepseek", url: "https://api.llm7.io/v1/chat/completions", model: "codestral-latest", keyEnv: "free" },
-  { id: "qwen",     url: "https://api.llm7.io/v1/chat/completions", model: "codestral-latest", keyEnv: "free" },
-  { id: "mixtral",  url: "https://api.llm7.io/v1/chat/completions", model: "codestral-latest", keyEnv: "free" },
-  { id: "freellm",  url: "https://api.freellm.net/v1/chat/completions",     model: "gpt-4o-mini-free",              keyEnv: "" },
+  { id: "groq",     url: "https://api.llm7.io/v1/chat/completions", model: "deepseek-v4-flash", keyEnv: "free" },
+  { id: "deepseek", url: "https://api.llm7.io/v1/chat/completions", model: "deepseek-v4-flash", keyEnv: "free" },
+  { id: "qwen",     url: "https://api.llm7.io/v1/chat/completions", model: "deepseek-v4-flash", keyEnv: "free" },
+  { id: "mixtral",  url: "https://api.llm7.io/v1/chat/completions", model: "deepseek-v4-flash", keyEnv: "free" },
+  { id: "freellm",  url: "https://api.llm7.io/v1/chat/completions",     model: "deepseek-v4-flash",              keyEnv: "" },
 ];
 
 const GROQ_KEY = "free";
