@@ -2,7 +2,7 @@ import { BrainCircuit, Send, Loader2, Download, Code2, Smartphone, Monitor, Chec
 import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/auth";
-import { dbSaveApp } from "@/lib/supabase";
+import { dbSaveApp, supabaseAdmin } from "@/lib/supabase";
 import { useNavigate } from "react-router-dom";
 
 // ── Credenciales ─────────────────────────────────────────────
@@ -1578,6 +1578,7 @@ export default function Builder() {
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
   const [prompt, setPrompt] = useState("");
+  const [paywallOpen, setPaywallOpen] = useState(false);
   const [isBuilding, setIsBuilding] = useState(false);
   const [steps, setSteps] = useState<Step[]>(STEPS.map(s => ({ ...s })));
   const [log, setLog] = useState<string[]>([]);
@@ -1619,6 +1620,11 @@ export default function Builder() {
 
   const handleBuild = async () => {
     if (!prompt.trim() || isBuilding) return;
+    // ── Muro de créditos ──────────────────────────────────
+    if (user && user.role !== "admin" && (user.credits ?? 0) <= 0) {
+      setPaywallOpen(true);
+      return;
+    }
     setIsBuilding(true);
     setFinalized(false);
     setIsLive(false);
@@ -1732,6 +1738,11 @@ IMPORTANTE: Genera datos de ejemplo MUY específicos para esta app (nombres, val
             html_code: finalHtml,
           });
           addLog(`💾 Guardada: "${meta.name}"`);
+          // Descontar crédito al usuario (no admin)
+          if (user.role !== "admin") {
+            const newCredits = Math.max(0, (user.credits ?? 1) - 1);
+            await supabaseAdmin.from("users").update({ credits: newCredits }).eq("id", user.id).catch(console.error);
+          }
         } catch (e: any) { addLog("⚠️ No se pudo guardar: " + (e?.message || "")); }
       }
       setStep("save", "done");
@@ -1783,7 +1794,49 @@ CERO texto extra. CERO explicaciones.`,
     a.click();
   };
 
+  // ── Modal Paywall ────────────────────────────────────────
+  const PaywallModal = () => (
+    <div style={{
+      position:"fixed",inset:0,background:"rgba(0,0,0,0.85)",zIndex:9999,
+      display:paywallOpen?"flex":"none",alignItems:"center",justifyContent:"center"
+    }}>
+      <div style={{
+        background:"#111128",border:"1px solid #7c3aed",borderRadius:16,
+        padding:32,maxWidth:380,width:"90%",textAlign:"center",color:"#fff"
+      }}>
+        <div style={{fontSize:48,marginBottom:8}}>⚡</div>
+        <h2 style={{margin:"0 0 8px",fontSize:22,color:"#a78bfa"}}>Sin créditos</h2>
+        <p style={{color:"#888",margin:"0 0 20px",fontSize:14}}>
+          Necesitas créditos para generar apps.<br/>
+          Con el Plan Pro tienes <strong style={{color:"#fff"}}>créditos ilimitados</strong> por solo <strong style={{color:"#a78bfa"}}>€2.99/mes</strong>.
+        </p>
+        <a
+          href="https://www.paypal.com/cgi-bin/webscr?cmd=_xclick-subscriptions&business=joanlazaro83%40gmail.com&item_name=NexusAI+Pro&item_number=pro_monthly&amount=2.99&currency_code=EUR&src=1&sra=1&t3=M&p3=1&no_note=1&return=https://nexusia-three.vercel.app&cancel_return=https://nexusia-three.vercel.app"
+          target="_blank"
+          rel="noopener"
+          style={{
+            display:"block",background:"#003087",color:"#fff",padding:"12px 24px",
+            borderRadius:8,textDecoration:"none",fontWeight:700,fontSize:15,marginBottom:12
+          }}
+          onClick={() => setPaywallOpen(false)}
+        >
+          💳 Suscribirse con PayPal — €2.99/mes
+        </a>
+        <button
+          onClick={() => setPaywallOpen(false)}
+          style={{background:"transparent",border:"1px solid #333",color:"#888",
+            padding:"8px 20px",borderRadius:8,cursor:"pointer",fontSize:13}}
+        >
+          Cancelar
+        </button>
+      </div>
+    </div>
+  );
+
+
   return (
+    <>
+    <PaywallModal />
     <div style={{ display: "flex", flexDirection: "column", height: "100vh", background: "#0a0a0f", color: "#e0e0e0", fontFamily: "system-ui, sans-serif" }}>
 
       {/* ── HEADER ─────────────────────────────────────────── */}
@@ -1914,6 +1967,7 @@ CERO texto extra. CERO explicaciones.`,
 
       <style>{`@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}`}</style>
     </div>
+    </>
   );
 }
 
