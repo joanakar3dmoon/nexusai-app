@@ -24,7 +24,10 @@
     "@vitejs/plugin-react": "^4.4.1",
     "tailwindcss": "^4.1.4",
     "typescript": "~5.8.3",
-    "vite": "^6.3.2"
+    "vite": "^6.3.2",
+    "@capacitor/core": "^7.0.0",
+    "@capacitor/cli": "^7.0.0",
+    "@capacitor/android": "^7.0.0"
   },
   "devDependencies": {
     "@types/react": "^19.1.2",
