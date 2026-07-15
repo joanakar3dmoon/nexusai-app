@@ -127,7 +127,7 @@ function injectAds(html: string): string {
       try{
         const r=await fetch('https://api.llm7.io/v1/chat/completions',{
           method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer ${GROQ_KEY}'},
-          body:JSON.stringify({model:'deepseek-v4-flash',messages:[{role:'system',content:'Asistente de app. Responde corto en español.'},{role:'user',content:q}],max_tokens:200}),
+          body:JSON.stringify({model: "llama-3.1-8b-instant",messages:[{role:'system',content:'Asistente de app. Responde corto en español.'},{role:'user',content:q}],max_tokens:200}),
           signal:AbortSignal.timeout(15000)
         });
         const d=await r.json();
