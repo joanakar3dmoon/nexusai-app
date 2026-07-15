@@ -13,8 +13,8 @@ const AMZ_TAG   = "r3dm01-21";
 
 // ── Llamada a Groq ───────────────────────────────────────────
 async function callGroq(system: string, user: string, tokens = 8192): Promise<string> {
-  // llama-3.3-70b primero (limpio), luego llama-3.1-8b, qwen como último recurso
-  const models = ["llama-3.3-70b-versatile", "llama-3.1-8b-instant", "qwen/qwen3-32b"];
+  // llama-4-scout rápido primero, luego llama-3.3-70b, luego llama-3.1-8b
+  const models = ["meta-llama/llama-4-scout-17b-16e-instruct", "llama-3.3-70b-versatile", "llama-3.1-8b-instant"];
   for (const model of models) {
     try {
       const r = await fetch("https://api.groq.com/openai/v1/chat/completions", {
@@ -41,7 +41,7 @@ async function callGroq(system: string, user: string, tokens = 8192): Promise<st
       }
       const d = await r.json();
       let content = d.choices?.[0]?.message?.content ?? "";
-      // Eliminar bloques <think>...</think> que genera qwen3
+      // Eliminar bloques <think>...</think>
       content = content.replace(/<think>[\s\S]*?<\/think>/gi, "").trim();
       if (content.length > 50) return content;
     } catch (e) {
@@ -159,12 +159,20 @@ function localApp(name: string, prompt: string): string {
     tareas: () => taskApp(name, color),
     recetas: () => recipeApp(name, color),
     tienda: () => shopApp(name, color),
+    gimnasio: () => gymApp(name, color),
+    finanzas: () => financeApp(name, color),
+    musica: () => musicApp(name, color),
+    notas: () => taskApp(name, color),
     default: () => taskApp(name, color),
   };
 
-  const key = p.includes("tarea") || p.includes("todo") ? "tareas"
-    : p.includes("receta") || p.includes("cocina") ? "recetas"
-    : p.includes("tienda") || p.includes("shop") || p.includes("ropa") ? "tienda"
+  const key = p.includes("tarea") || p.includes("todo") || p.includes("productividad") ? "tareas"
+    : p.includes("receta") || p.includes("cocina") || p.includes("comida") || p.includes("ingrediente") ? "recetas"
+    : p.includes("tienda") || p.includes("shop") || p.includes("ropa") || p.includes("product") || p.includes("carrito") ? "tienda"
+    : p.includes("gimnasio") || p.includes("ejercicio") || p.includes("entrena") || p.includes("fitness") || p.includes("rutina") ? "gimnasio"
+    : p.includes("finanza") || p.includes("gasto") || p.includes("presupuesto") || p.includes("dinero") || p.includes("ahorro") ? "finanzas"
+    : p.includes("música") || p.includes("musica") || p.includes("cancion") || p.includes("playlist") || p.includes("artista") ? "musica"
+    : p.includes("nota") || p.includes("apunte") || p.includes("diario") ? "notas"
     : "default";
 
   return categories[key]();
@@ -930,6 +938,624 @@ function renderCatalog(){
 
 renderProducts(PRODUCTS.slice(0,4),'featured-grid');
 updateCartBadge();
+</script>
+</body>
+</html>`;
+}
+
+function gymApp(name: string, color: string): string {
+  return `<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>${name}</title>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box;font-family:'Poppins',sans-serif}
+:root{--bg:#0a0a0f;--card:#111128;--accent:${color};--text:#e0e0e0;}
+body{background:var(--bg);color:var(--text);min-height:100vh;padding-bottom:80px}
+.section{display:none;padding:16px;max-width:480px;margin:0 auto}
+.section.active{display:block}
+header{background:var(--card);padding:16px;text-align:center;border-bottom:1px solid rgba(255,255,255,.07);position:sticky;top:0;z-index:10}
+header h1{font-size:1.2rem;color:var(--accent)}
+.stats-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:16px 0}
+.stat{background:var(--card);border-radius:12px;padding:16px;text-align:center;border:1px solid rgba(255,255,255,.06)}
+.stat-val{font-size:1.8rem;font-weight:700;color:var(--accent)}
+.stat-lbl{font-size:.75rem;color:#888;margin-top:4px}
+.card{background:var(--card);border-radius:12px;padding:14px;margin-bottom:10px;border:1px solid rgba(255,255,255,.06)}
+.card h3{font-size:.95rem;margin-bottom:6px}
+.badge{display:inline-block;padding:2px 8px;border-radius:20px;font-size:.7rem;font-weight:600}
+.badge-push{background:rgba(239,68,68,.15);color:#f87171}
+.badge-pull{background:rgba(59,130,246,.15);color:#60a5fa}
+.badge-legs{background:rgba(16,185,129,.15);color:#34d399}
+.badge-cardio{background:rgba(245,158,11,.15);color:#fbbf24}
+.ex-list{list-style:none;margin-top:8px}
+.ex-item{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.04);font-size:.85rem}
+.ex-item:last-child{border:none}
+.ex-sets{color:var(--accent);font-weight:600;font-size:.8rem}
+.check-btn{background:rgba(124,58,237,.15);border:none;color:var(--accent);padding:4px 10px;border-radius:8px;cursor:pointer;font-size:.75rem}
+.check-btn.done{background:var(--accent);color:white}
+.progress-bar{background:rgba(255,255,255,.08);border-radius:8px;height:8px;margin-top:6px;overflow:hidden}
+.progress-fill{height:100%;background:linear-gradient(90deg,var(--accent),#a855f7);border-radius:8px;transition:width .5s}
+.input{width:100%;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:10px;padding:10px 14px;color:var(--text);font-size:.9rem;margin-bottom:10px}
+.input:focus{outline:none;border-color:var(--accent)}
+.btn{width:100%;background:var(--accent);color:white;border:none;padding:12px;border-radius:10px;font-size:1rem;font-weight:600;cursor:pointer;margin-top:4px}
+.btn:hover{opacity:.9}
+.nav{position:fixed;bottom:0;width:100%;background:var(--card);display:flex;justify-content:space-around;padding:10px 0;border-top:1px solid rgba(255,255,255,.07);z-index:100}
+.nav-btn{background:none;border:none;color:#666;cursor:pointer;padding:4px 8px;border-radius:8px;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:.65rem;transition:.2s}
+.nav-btn.active,.nav-btn:hover{color:var(--accent)}
+.nav-btn .ico{font-size:1.3rem}
+.toast{position:fixed;bottom:90px;left:50%;transform:translateX(-50%);background:var(--accent);color:white;padding:10px 22px;border-radius:20px;font-size:.85rem;z-index:999;opacity:0;transition:opacity .3s;pointer-events:none}
+.week-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;margin:12px 0}
+.day-dot{aspect-ratio:1;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:.7rem;font-weight:600;cursor:pointer}
+.day-dot.rest{background:rgba(255,255,255,.05);color:#555}
+.day-dot.done{background:var(--accent);color:white}
+.day-dot.today{border:2px solid var(--accent);color:var(--accent)}
+</style>
+</head>
+<body>
+<header><h1>💪 ${name}</h1></header>
+<div id="toast" class="toast"></div>
+
+<div class="section active" id="sec-home">
+  <div class="stats-grid">
+    <div class="stat"><div class="stat-val" id="streak">12</div><div class="stat-lbl">Racha días</div></div>
+    <div class="stat"><div class="stat-val" id="week-done">4</div><div class="stat-lbl">Esta semana</div></div>
+    <div class="stat"><div class="stat-val" id="total-workouts">47</div><div class="stat-lbl">Total entrenos</div></div>
+    <div class="stat"><div class="stat-val" id="kcal">2840</div><div class="stat-lbl">Kcal quemadas</div></div>
+  </div>
+  <h2 style="font-size:.95rem;margin:12px 0 8px;color:#aaa">SEMANA ACTUAL</h2>
+  <div class="week-grid" id="week-grid"></div>
+  <h2 style="font-size:.95rem;margin:16px 0 8px;color:#aaa">PRÓXIMO ENTRENO</h2>
+  <div id="next-workout"></div>
+</div>
+
+<div class="section" id="sec-routines">
+  <h2 style="font-size:1rem;margin-bottom:12px">Mis Rutinas</h2>
+  <div id="routines-list"></div>
+</div>
+
+<div class="section" id="sec-add">
+  <h2 style="font-size:1rem;margin-bottom:14px">Registrar Entreno</h2>
+  <label style="font-size:.8rem;color:#aaa;display:block;margin-bottom:4px">Tipo de rutina</label>
+  <select class="input" id="new-type">
+    <option value="push">Push (Pecho, Hombros, Tríceps)</option>
+    <option value="pull">Pull (Espalda, Bíceps)</option>
+    <option value="legs">Legs (Piernas, Glúteos)</option>
+    <option value="cardio">Cardio</option>
+    <option value="full">Full Body</option>
+  </select>
+  <label style="font-size:.8rem;color:#aaa;display:block;margin-bottom:4px">Duración (min)</label>
+  <input class="input" id="new-dur" type="number" value="45" min="10" max="180">
+  <label style="font-size:.8rem;color:#aaa;display:block;margin-bottom:4px">Notas</label>
+  <input class="input" id="new-notes" placeholder="Ej: Aumenté peso en press banca...">
+  <button class="btn" id="save-workout">✅ Guardar Entreno</button>
+</div>
+
+<div class="section" id="sec-profile">
+  <h2 style="font-size:1rem;margin-bottom:14px">Mi Perfil</h2>
+  <div class="card">
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">
+      <div style="width:56px;height:56px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;font-size:1.8rem">💪</div>
+      <div><div id="p-name" style="font-weight:600;font-size:1rem">Atleta NexusAI</div><div style="color:#888;font-size:.8rem">Nivel: Intermedio</div></div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div style="text-align:center;background:rgba(255,255,255,.04);border-radius:8px;padding:10px"><div style="color:var(--accent);font-weight:700;font-size:1.2rem" id="p-total">47</div><div style="font-size:.72rem;color:#888">Entrenos</div></div>
+      <div style="text-align:center;background:rgba(255,255,255,.04);border-radius:8px;padding:10px"><div style="color:var(--accent);font-weight:700;font-size:1.2rem" id="p-streak">12</div><div style="font-size:.72rem;color:#888">Racha</div></div>
+    </div>
+  </div>
+  <div class="card" style="margin-top:12px">
+    <h3 style="font-size:.9rem;margin-bottom:10px;color:#aaa">OBJETIVO SEMANAL</h3>
+    <div style="font-size:.85rem;margin-bottom:6px">4 / 5 entrenos completados</div>
+    <div class="progress-bar"><div class="progress-fill" style="width:80%"></div></div>
+  </div>
+</div>
+
+<nav class="nav">
+  <button class="nav-btn active" data-sec="home"><span class="ico">🏠</span>Inicio</button>
+  <button class="nav-btn" data-sec="routines"><span class="ico">📋</span>Rutinas</button>
+  <button class="nav-btn" data-sec="add"><span class="ico">➕</span>Registrar</button>
+  <button class="nav-btn" data-sec="profile"><span class="ico">👤</span>Perfil</button>
+</nav>
+
+<script>
+const STORE='nexusai_gym_v1';
+let logs=JSON.parse(localStorage.getItem(STORE)||'null')||[
+  {id:1,type:'push',dur:50,notes:'Press banca 80kg x5',date:'2026-07-14',kcal:320},
+  {id:2,type:'pull',dur:45,notes:'Dominadas +10kg',date:'2026-07-13',kcal:290},
+  {id:3,type:'legs',dur:60,notes:'Sentadillas 100kg',date:'2026-07-12',kcal:410},
+  {id:4,type:'cardio',dur:30,notes:'HIIT + cuerda',date:'2026-07-11',kcal:350},
+  {id:5,type:'push',dur:55,notes:'Vuelos laterales PR',date:'2026-07-10',kcal:330},
+  {id:6,type:'pull',dur:40,notes:'Remo 70kg',date:'2026-07-09',kcal:270},
+  {id:7,type:'legs',dur:65,notes:'Peso muerto 120kg',date:'2026-07-08',kcal:430},
+];
+const ROUTINES=[
+  {name:'Push Day A',type:'push',exercises:[{n:'Press Banca',s:'4x8',m:'80kg'},{n:'Press Inclinado Mancuernas',s:'3x10',m:'28kg'},{n:'Vuelos Laterales',s:'4x12',m:'14kg'},{n:'Press Militar',s:'3x8',m:'50kg'},{n:'Extensión Tríceps Polea',s:'4x12',m:'35kg'}]},
+  {name:'Pull Day A',type:'pull',exercises:[{n:'Dominadas',s:'4x6',m:'+10kg'},{n:'Remo con Barra',s:'4x8',m:'70kg'},{n:'Curl Bíceps Barra',s:'3x10',m:'40kg'},{n:'Jalón al Pecho',s:'3x12',m:'65kg'},{n:'Curl Martillo',s:'3x12',m:'18kg'}]},
+  {name:'Leg Day A',type:'legs',exercises:[{n:'Sentadilla',s:'5x5',m:'100kg'},{n:'Prensa',s:'4x10',m:'180kg'},{n:'Extensión Cuádriceps',s:'3x12',m:'60kg'},{n:'Femoral Tumbado',s:'3x12',m:'45kg'},{n:'Gemelos de Pie',s:'4x15',m:'100kg'}]},
+  {name:'Cardio HIIT',type:'cardio',exercises:[{n:'Cuerda (intervalos)',s:'10x30s',m:'descanso 20s'},{n:'Burpees',s:'4x10',m:''},{n:'Sprint 50m',s:'6x',m:'descanso 45s'},{n:'Mountain Climbers',s:'3x30s',m:''},{n:'Plancha',s:'3x60s',m:''}]},
+];
+function save(){localStorage.setItem(STORE,JSON.stringify(logs));}
+function typeLabel(t){return{push:'<span class="badge badge-push">PUSH</span>',pull:'<span class="badge badge-pull">PULL</span>',legs:'<span class="badge badge-legs">LEGS</span>',cardio:'<span class="badge badge-cardio">CARDIO</span>',full:'<span class="badge" style="background:rgba(124,58,237,.15);color:#a78bfa">FULL</span>'}[t]||'';}
+function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.style.opacity='1';setTimeout(()=>t.style.opacity='0',2000);}
+
+function renderWeek(){
+  const days=['L','M','X','J','V','S','D'];
+  const today=new Date().getDay();
+  const grid=document.getElementById('week-grid');
+  const recent=logs.slice(0,7).map(l=>l.date);
+  grid.innerHTML=days.map((d,i)=>{
+    const date=new Date();date.setDate(date.getDate()-(today===0?6:today-1)+i);
+    const ds=date.toISOString().split('T')[0];
+    const isDone=recent.includes(ds);
+    const isTod=i===(today===0?6:today-1);
+    return \`<div class="day-dot \${isDone?'done':isTod?'today':'rest'}">\${d}</div>\`;
+  }).join('');
+}
+
+function renderNext(){
+  const el=document.getElementById('next-workout');
+  const r=ROUTINES[logs.length%ROUTINES.length];
+  el.innerHTML=\`<div class="card"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><h3>\${r.name}</h3>\${typeLabel(r.type)}</div><ul class="ex-list">\${r.exercises.map(e=>\`<li class="ex-item"><span>\${e.n}</span><span class="ex-sets">\${e.s} \${e.m}</span></li>\`).join('')}</ul><button class="btn" style="margin-top:10px" onclick="document.querySelector('[data-sec=add]').click()">Empezar 💪</button></div>\`;
+}
+
+function renderRoutines(){
+  document.getElementById('routines-list').innerHTML=ROUTINES.map(r=>\`
+    <div class="card"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><h3>\${r.name}</h3>\${typeLabel(r.type)}</div>
+    <ul class="ex-list">\${r.exercises.map(e=>\`<li class="ex-item"><span>\${e.n}</span><span class="ex-sets">\${e.s}</span></li>\`).join('')}</ul></div>
+  \`).join('');
+}
+
+document.getElementById('save-workout').addEventListener('click',()=>{
+  const type=document.getElementById('new-type').value;
+  const dur=+document.getElementById('new-dur').value||45;
+  const notes=document.getElementById('new-notes').value||'';
+  const kcal=Math.round(dur*7.5);
+  logs.unshift({id:Date.now(),type,dur,notes,date:new Date().toISOString().split('T')[0],kcal});
+  save();
+  document.getElementById('new-notes').value='';
+  const total=+document.getElementById('total-workouts').textContent+1;
+  document.getElementById('total-workouts').textContent=total;
+  document.getElementById('kcal').textContent=(+document.getElementById('kcal').textContent+kcal);
+  toast('💪 ¡Entreno registrado!');
+  renderWeek();
+});
+
+document.querySelectorAll('.nav-btn').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    const sec=btn.dataset.sec;
+    document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
+    document.getElementById('sec-'+sec).classList.add('active');
+    document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    if(sec==='routines')renderRoutines();
+  });
+});
+
+renderWeek();renderNext();
+</script>
+</body>
+</html>`;
+}
+
+function financeApp(name: string, color: string): string {
+  return `<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>${name}</title>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box;font-family:'Poppins',sans-serif}
+:root{--bg:#0a0a0f;--card:#111128;--accent:${color};--text:#e0e0e0;}
+body{background:var(--bg);color:var(--text);min-height:100vh;padding-bottom:80px}
+.section{display:none;padding:16px;max-width:480px;margin:0 auto}
+.section.active{display:block}
+header{background:var(--card);padding:16px;text-align:center;border-bottom:1px solid rgba(255,255,255,.07);position:sticky;top:0;z-index:10}
+header h1{font-size:1.2rem;color:var(--accent)}
+.balance-card{background:linear-gradient(135deg,${color},#a855f7);border-radius:16px;padding:24px;margin-bottom:16px;text-align:center}
+.balance-lbl{font-size:.8rem;opacity:.8;margin-bottom:4px}
+.balance-val{font-size:2.2rem;font-weight:700}
+.balance-sub{display:flex;justify-content:space-between;margin-top:12px;font-size:.8rem}
+.card{background:var(--card);border-radius:12px;padding:14px;margin-bottom:10px;border:1px solid rgba(255,255,255,.06)}
+.tx-item{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid rgba(255,255,255,.04)}
+.tx-item:last-child{border:none}
+.tx-ico{width:38px;height:38px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1.1rem;flex-shrink:0}
+.tx-info{flex:1}
+.tx-name{font-size:.88rem;font-weight:500}
+.tx-date{font-size:.72rem;color:#888}
+.tx-amount{font-weight:700;font-size:.95rem}
+.income{color:#34d399}
+.expense{color:#f87171}
+.cat-badge{display:inline-block;padding:1px 7px;border-radius:20px;font-size:.65rem;margin-top:2px}
+.input{width:100%;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:10px;padding:10px 14px;color:var(--text);font-size:.9rem;margin-bottom:10px}
+.input:focus{outline:none;border-color:var(--accent)}
+select.input option{background:#1a1a2e}
+.btn{width:100%;background:var(--accent);color:white;border:none;padding:12px;border-radius:10px;font-size:1rem;font-weight:600;cursor:pointer;margin-top:4px}
+.type-toggle{display:flex;gap:8px;margin-bottom:12px}
+.type-btn{flex:1;padding:10px;border:1px solid rgba(255,255,255,.1);border-radius:8px;background:none;color:#888;cursor:pointer;font-size:.85rem;transition:.2s}
+.type-btn.active.income{border-color:#34d399;color:#34d399;background:rgba(52,211,153,.1)}
+.type-btn.active.expense{border-color:#f87171;color:#f87171;background:rgba(248,113,113,.1)}
+.progress-bar{background:rgba(255,255,255,.08);border-radius:8px;height:8px;overflow:hidden;margin-top:6px}
+.progress-fill{height:100%;background:linear-gradient(90deg,var(--accent),#a855f7);border-radius:8px}
+.nav{position:fixed;bottom:0;width:100%;background:var(--card);display:flex;justify-content:space-around;padding:10px 0;border-top:1px solid rgba(255,255,255,.07);z-index:100}
+.nav-btn{background:none;border:none;color:#666;cursor:pointer;padding:4px 8px;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:.65rem;transition:.2s}
+.nav-btn.active,.nav-btn:hover{color:var(--accent)}
+.nav-btn .ico{font-size:1.3rem}
+.toast{position:fixed;bottom:90px;left:50%;transform:translateX(-50%);background:var(--accent);color:white;padding:10px 22px;border-radius:20px;font-size:.85rem;z-index:999;opacity:0;transition:opacity .3s;pointer-events:none}
+</style>
+</head>
+<body>
+<header><h1>💰 ${name}</h1></header>
+<div id="toast" class="toast"></div>
+
+<div class="section active" id="sec-home">
+  <div class="balance-card">
+    <div class="balance-lbl">SALDO TOTAL</div>
+    <div class="balance-val" id="total-balance">2.340,50 €</div>
+    <div class="balance-sub">
+      <span>📈 Ingresos: <strong id="total-income">3.200 €</strong></span>
+      <span>📉 Gastos: <strong id="total-expense">859,50 €</strong></span>
+    </div>
+  </div>
+  <h2 style="font-size:.9rem;color:#aaa;margin-bottom:8px">PRESUPUESTO MENSUAL</h2>
+  <div class="card" id="budget-bars"></div>
+  <h2 style="font-size:.9rem;color:#aaa;margin:12px 0 8px">ÚLTIMAS TRANSACCIONES</h2>
+  <div id="recent-list"></div>
+</div>
+
+<div class="section" id="sec-txs">
+  <div style="display:flex;gap:8px;margin-bottom:12px">
+    <button class="type-btn active" id="filter-all" data-filter="all">Todas</button>
+    <button class="type-btn" id="filter-income" data-filter="income">Ingresos</button>
+    <button class="type-btn" id="filter-expense" data-filter="expense">Gastos</button>
+  </div>
+  <div id="all-txs"></div>
+</div>
+
+<div class="section" id="sec-add">
+  <h2 style="font-size:1rem;margin-bottom:14px">Nueva Transacción</h2>
+  <div class="type-toggle">
+    <button class="type-btn expense active" id="btn-expense" data-t="expense">📉 Gasto</button>
+    <button class="type-btn income" id="btn-income" data-t="income">📈 Ingreso</button>
+  </div>
+  <input class="input" id="new-desc" placeholder="Descripción (ej: Supermercado)">
+  <input class="input" id="new-amount" type="number" placeholder="Importe en €" step="0.01" min="0">
+  <select class="input" id="new-cat">
+    <option value="🍔 Comida">🍔 Comida</option>
+    <option value="🚗 Transporte">🚗 Transporte</option>
+    <option value="🏠 Vivienda">🏠 Vivienda</option>
+    <option value="💊 Salud">💊 Salud</option>
+    <option value="🎮 Ocio">🎮 Ocio</option>
+    <option value="👕 Ropa">👕 Ropa</option>
+    <option value="💼 Trabajo">💼 Trabajo (ingreso)</option>
+    <option value="🎁 Extra">🎁 Extra</option>
+  </select>
+  <button class="btn" id="save-tx">💾 Guardar</button>
+</div>
+
+<div class="section" id="sec-profile">
+  <h2 style="font-size:1rem;margin-bottom:14px">Resumen & Metas</h2>
+  <div class="card">
+    <h3 style="font-size:.9rem;margin-bottom:10px;color:#aaa">META DE AHORRO</h3>
+    <div style="font-size:.85rem;margin-bottom:4px">Vacaciones verano 🌴 — 800 € / 1.500 €</div>
+    <div class="progress-bar"><div class="progress-fill" style="width:53%"></div></div>
+    <div style="text-align:right;font-size:.75rem;color:#888;margin-top:4px">53%</div>
+  </div>
+  <div class="card" style="margin-top:10px">
+    <h3 style="font-size:.9rem;margin-bottom:10px;color:#aaa">DISTRIBUCIÓN GASTOS</h3>
+    <div id="cat-summary"></div>
+  </div>
+</div>
+
+<nav class="nav">
+  <button class="nav-btn active" data-sec="home"><span class="ico">🏠</span>Inicio</button>
+  <button class="nav-btn" data-sec="txs"><span class="ico">📊</span>Historial</button>
+  <button class="nav-btn" data-sec="add"><span class="ico">➕</span>Añadir</button>
+  <button class="nav-btn" data-sec="profile"><span class="ico">🎯</span>Metas</button>
+</nav>
+
+<script>
+const STORE='nexusai_finance_v1';
+let txs=JSON.parse(localStorage.getItem(STORE)||'null')||[
+  {id:1,desc:'Nómina julio',amount:1600,type:'income',cat:'💼 Trabajo',date:'2026-07-01'},
+  {id:2,desc:'Alquiler',amount:650,type:'expense',cat:'🏠 Vivienda',date:'2026-07-02'},
+  {id:3,desc:'Mercadona',amount:87.30,type:'expense',cat:'🍔 Comida',date:'2026-07-04'},
+  {id:4,desc:'Gasolina',amount:52.80,type:'expense',cat:'🚗 Transporte',date:'2026-07-05'},
+  {id:5,desc:'Freelance web',amount:350,type:'income',cat:'💼 Trabajo',date:'2026-07-06'},
+  {id:6,desc:'Netflix+Spotify',amount:22.98,type:'expense',cat:'🎮 Ocio',date:'2026-07-07'},
+  {id:7,desc:'Farmacia',amount:14.50,type:'expense',cat:'💊 Salud',date:'2026-07-08'},
+  {id:8,desc:'Mercadona',amount:64.20,type:'expense',cat:'🍔 Comida',date:'2026-07-11'},
+  {id:9,desc:'Nómina extra',amount:250,type:'income',cat:'💼 Trabajo',date:'2026-07-12'},
+  {id:10,desc:'Ropa Zara',amount:67.90,type:'expense',cat:'👕 Ropa',date:'2026-07-13'},
+];
+let newType='expense';
+function save(){localStorage.setItem(STORE,JSON.stringify(txs));}
+function fmt(n){return n.toLocaleString('es-ES',{minimumFractionDigits:2,maximumFractionDigits:2})+' €';}
+function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.style.opacity='1';setTimeout(()=>t.style.opacity='0',2000);}
+
+function calcTotals(){
+  const income=txs.filter(t=>t.type==='income').reduce((a,t)=>a+t.amount,0);
+  const expense=txs.filter(t=>t.type==='expense').reduce((a,t)=>a+t.amount,0);
+  return{income,expense,balance:income-expense};
+}
+function renderHome(){
+  const{income,expense,balance}=calcTotals();
+  document.getElementById('total-balance').textContent=fmt(balance);
+  document.getElementById('total-income').textContent=fmt(income);
+  document.getElementById('total-expense').textContent=fmt(expense);
+  const recent=txs.slice(0,5);
+  document.getElementById('recent-list').innerHTML=recent.map(txHTML).join('');
+  const cats={};
+  txs.filter(t=>t.type==='expense').forEach(t=>{cats[t.cat]=(cats[t.cat]||0)+t.amount;});
+  const budgets=[{cat:'🍔 Comida',limit:300},{cat:'🏠 Vivienda',limit:700},{cat:'🚗 Transporte',limit:150},{cat:'🎮 Ocio',limit:100}];
+  document.getElementById('budget-bars').innerHTML=budgets.map(b=>{
+    const spent=cats[b.cat]||0;const pct=Math.min(100,Math.round(spent/b.limit*100));
+    return \`<div style="margin-bottom:10px"><div style="display:flex;justify-content:space-between;font-size:.8rem;margin-bottom:4px"><span>\${b.cat}</span><span>\${fmt(spent)} / \${fmt(b.limit)}</span></div><div class="progress-bar"><div class="progress-fill" style="width:\${pct}%;background:\${pct>90?'#ef4444':pct>70?'#f59e0b':'linear-gradient(90deg,${color},#a855f7)'}"></div></div></div>\`;
+  }).join('');
+}
+function txHTML(t){
+  const ico={income:'💚',expense:'🔴'}[t.type];
+  return \`<div class="tx-item">
+    <div class="tx-ico" style="background:rgba(255,255,255,.05)">\${t.cat.split(' ')[0]}</div>
+    <div class="tx-info"><div class="tx-name">\${t.desc}</div><div class="tx-date">\${t.date} · \${t.cat}</div></div>
+    <div class="tx-amount \${t.type==='income'?'income':'expense'}">\${t.type==='income'?'+':'-'}\${fmt(t.amount)}</div>
+  </div>\`;
+}
+function renderAll(filter='all'){
+  let list=txs;
+  if(filter!=='all')list=txs.filter(t=>t.type===filter);
+  document.getElementById('all-txs').innerHTML=list.length?list.map(txHTML).join(''):'<div style="text-align:center;padding:30px;color:#666">Sin transacciones</div>';
+}
+
+document.getElementById('save-tx').addEventListener('click',()=>{
+  const desc=document.getElementById('new-desc').value.trim();
+  const amount=parseFloat(document.getElementById('new-amount').value);
+  const cat=document.getElementById('new-cat').value;
+  if(!desc||!amount||amount<=0){toast('⚠️ Completa todos los campos');return;}
+  txs.unshift({id:Date.now(),desc,amount,type:newType,cat,date:new Date().toISOString().split('T')[0]});
+  save();document.getElementById('new-desc').value='';document.getElementById('new-amount').value='';
+  toast(newType==='income'?'✅ Ingreso guardado':'✅ Gasto guardado');
+  renderHome();
+});
+
+document.getElementById('btn-expense').addEventListener('click',()=>{newType='expense';document.getElementById('btn-expense').className='type-btn expense active';document.getElementById('btn-income').className='type-btn income';});
+document.getElementById('btn-income').addEventListener('click',()=>{newType='income';document.getElementById('btn-income').className='type-btn income active';document.getElementById('btn-expense').className='type-btn expense';});
+
+document.querySelectorAll('[data-filter]').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    document.querySelectorAll('[data-filter]').forEach(b=>b.className='type-btn');
+    btn.className='type-btn active';
+    renderAll(btn.dataset.filter);
+  });
+});
+
+document.querySelectorAll('.nav-btn').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    const sec=btn.dataset.sec;
+    document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
+    document.getElementById('sec-'+sec).classList.add('active');
+    document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    if(sec==='home')renderHome();
+    if(sec==='txs')renderAll();
+  });
+});
+
+renderHome();
+</script>
+</body>
+</html>`;
+}
+
+function musicApp(name: string, color: string): string {
+  return `<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>${name}</title>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box;font-family:'Poppins',sans-serif}
+:root{--bg:#0a0a0f;--card:#111128;--accent:${color};--text:#e0e0e0;}
+body{background:var(--bg);color:var(--text);min-height:100vh;padding-bottom:80px}
+.section{display:none;padding:16px;max-width:480px;margin:0 auto}
+.section.active{display:block}
+header{background:var(--card);padding:16px;text-align:center;border-bottom:1px solid rgba(255,255,255,.07);position:sticky;top:0;z-index:10}
+header h1{font-size:1.2rem;color:var(--accent)}
+.now-playing{background:linear-gradient(135deg,#1a1a2e,${color}33);border-radius:16px;padding:20px;margin-bottom:16px;text-align:center;border:1px solid ${color}44}
+.album-art{width:120px;height:120px;border-radius:12px;background:linear-gradient(135deg,${color},#a855f7);display:flex;align-items:center;justify-content:center;font-size:3rem;margin:0 auto 14px}
+.song-title{font-size:1.1rem;font-weight:700;margin-bottom:4px}
+.song-artist{color:#888;font-size:.85rem;margin-bottom:14px}
+.progress-bar{background:rgba(255,255,255,.1);border-radius:8px;height:4px;margin-bottom:6px;cursor:pointer;position:relative}
+.progress-fill{height:100%;background:var(--accent);border-radius:8px;width:35%}
+.time{display:flex;justify-content:space-between;font-size:.72rem;color:#888;margin-bottom:14px}
+.controls{display:flex;align-items:center;justify-content:center;gap:20px}
+.ctrl-btn{background:none;border:none;color:#888;cursor:pointer;font-size:1.3rem;transition:.2s}
+.ctrl-btn:hover{color:var(--accent)}
+.ctrl-btn.play{width:52px;height:52px;border-radius:50%;background:var(--accent);color:white;font-size:1.5rem;display:flex;align-items:center;justify-content:center}
+.song-item{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid rgba(255,255,255,.04);cursor:pointer;transition:.2s}
+.song-item:hover{padding-left:4px}
+.song-item.active .song-name{color:var(--accent)}
+.song-item.active .song-num{color:var(--accent)}
+.song-thumb{width:44px;height:44px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:1.3rem;flex-shrink:0}
+.song-num{width:20px;color:#555;font-size:.8rem;text-align:center;flex-shrink:0}
+.song-name{flex:1;font-size:.88rem;font-weight:500}
+.song-meta{font-size:.72rem;color:#888}
+.song-dur{font-size:.75rem;color:#888;margin-left:auto}
+.like-btn{background:none;border:none;cursor:pointer;font-size:1rem;margin-left:6px;transition:.2s}
+.like-btn.liked{filter:drop-shadow(0 0 4px red)}
+.playlist-card{background:var(--card);border-radius:12px;padding:14px;margin-bottom:10px;display:flex;gap:12px;align-items:center;cursor:pointer;border:1px solid rgba(255,255,255,.06);transition:.2s}
+.playlist-card:hover{border-color:var(--accent)}
+.playlist-thumb{width:56px;height:56px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:1.8rem}
+.input{width:100%;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:10px;padding:10px 14px;color:var(--text);font-size:.9rem;margin-bottom:10px}
+.input:focus{outline:none;border-color:var(--accent)}
+.nav{position:fixed;bottom:0;width:100%;background:var(--card);display:flex;justify-content:space-around;padding:10px 0;border-top:1px solid rgba(255,255,255,.07);z-index:100}
+.nav-btn{background:none;border:none;color:#666;cursor:pointer;padding:4px 8px;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:.65rem;transition:.2s}
+.nav-btn.active,.nav-btn:hover{color:var(--accent)}
+.nav-btn .ico{font-size:1.3rem}
+.search{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:10px;padding:10px 14px;color:var(--text);font-size:.9rem;margin-bottom:12px;width:100%}
+.search:focus{outline:none;border-color:var(--accent)}
+</style>
+</head>
+<body>
+<header><h1>🎵 ${name}</h1></header>
+
+<div class="section active" id="sec-player">
+  <div class="now-playing">
+    <div class="album-art" id="np-art">🎵</div>
+    <div class="song-title" id="np-title">Selecciona una canción</div>
+    <div class="song-artist" id="np-artist">—</div>
+    <div class="progress-bar"><div class="progress-fill" id="np-progress"></div></div>
+    <div class="time"><span id="np-cur">0:00</span><span id="np-dur">0:00</span></div>
+    <div class="controls">
+      <button class="ctrl-btn" id="btn-shuffle">🔀</button>
+      <button class="ctrl-btn" id="btn-prev">⏮</button>
+      <button class="ctrl-btn play" id="btn-play">▶</button>
+      <button class="ctrl-btn" id="btn-next">⏭</button>
+      <button class="ctrl-btn" id="btn-repeat">🔁</button>
+    </div>
+  </div>
+  <h2 style="font-size:.9rem;color:#aaa;margin-bottom:8px">REPRODUCIENDO AHORA</h2>
+  <div id="queue-list"></div>
+</div>
+
+<div class="section" id="sec-explore">
+  <input class="search" id="search-songs" placeholder="🔍 Buscar canciones, artistas...">
+  <div id="explore-list"></div>
+</div>
+
+<div class="section" id="sec-playlists">
+  <h2 style="font-size:1rem;margin-bottom:12px">Mis Playlists</h2>
+  <div id="playlists-list"></div>
+</div>
+
+<div class="section" id="sec-liked">
+  <h2 style="font-size:1rem;margin-bottom:12px">❤️ Canciones favoritas</h2>
+  <div id="liked-list"></div>
+</div>
+
+<nav class="nav">
+  <button class="nav-btn active" data-sec="player"><span class="ico">🎵</span>Player</button>
+  <button class="nav-btn" data-sec="explore"><span class="ico">🔍</span>Explorar</button>
+  <button class="nav-btn" data-sec="playlists"><span class="ico">📋</span>Playlists</button>
+  <button class="nav-btn" data-sec="liked"><span class="ico">❤️</span>Favoritos</button>
+</nav>
+
+<script>
+const SONGS=[
+  {id:1,title:'Acid Rain',artist:'Joan aka R3DMOON',album:'3lectronica Vol.1',dur:'4:23',art:'🎛️',genre:'techno'},
+  {id:2,title:'Hypnotic Loop 003',artist:'Joan aka R3DMOON',album:'Minimal Sessions',dur:'6:10',art:'🌀',genre:'minimal'},
+  {id:3,title:'Dark Matter',artist:'R3DM',album:'Experimental Beats',dur:'5:47',art:'🌑',genre:'experimental'},
+  {id:4,title:'Synthetic Dreams',artist:'J.Quasar',album:'Acid Sessions',dur:'4:55',art:'⚡',genre:'acid'},
+  {id:5,title:'Pulse Wave',artist:'Joan aka R3DMOON',album:'3lectronica Vol.2',dur:'7:02',art:'📡',genre:'techno'},
+  {id:6,title:'Resonance',artist:'R3DM',album:'Deep Sounds',dur:'5:18',art:'🔊',genre:'minimal'},
+  {id:7,title:'Circuit Breaker',artist:'J.Quasar',album:'Acid Sessions',dur:'4:41',art:'💡',genre:'acid'},
+  {id:8,title:'Neural Pattern',artist:'Joan aka R3DMOON',album:'Minimal Sessions',dur:'6:33',art:'🧠',genre:'experimental'},
+  {id:9,title:'Phase Shift',artist:'R3DM',album:'3lectronica Vol.1',dur:'5:05',art:'🔄',genre:'techno'},
+  {id:10,title:'Void Walker',artist:'J.Quasar',album:'Dark Sessions',dur:'8:12',art:'🚀',genre:'minimal'},
+];
+const PLAYLISTS=[
+  {name:'Acid Techno Mix',emoji:'🎛️',songs:[1,4,7],color:'#7c3aed'},
+  {name:'Late Night Minimal',emoji:'🌙',songs:[2,6,10],color:'#1d4ed8'},
+  {name:'Experimental Vibes',emoji:'🌀',songs:[3,8,5],color:'#059669'},
+  {name:'Sesión de Estudio',emoji:'📚',songs:[6,2,9,10],color:'#b45309'},
+];
+const LIKED_KEY='nexusai_liked';
+let liked=new Set(JSON.parse(localStorage.getItem(LIKED_KEY)||'[]'));
+let currentIdx=0;let isPlaying=false;let progress=0;let interval=null;
+
+function saveLiked(){localStorage.setItem(LIKED_KEY,JSON.stringify([...liked]));}
+function songHTML(s,i,showNum=true){
+  const isLiked=liked.has(s.id);
+  const isCurrent=i===currentIdx;
+  return \`<div class="song-item \${isCurrent?'active':''}" data-idx="\${i}">
+    \${showNum?\`<span class="song-num">\${isCurrent?'▶':i+1}</span>\`:''}
+    <div class="song-thumb" style="background:linear-gradient(135deg,${color}33,#a855f733)">\${s.art}</div>
+    <div style="flex:1;min-width:0"><div class="song-name">\${s.title}</div><div class="song-meta">\${s.artist} · \${s.album}</div></div>
+    <span class="song-dur">\${s.dur}</span>
+    <button class="like-btn \${isLiked?'liked':''}" data-like="\${s.id}" onclick="event.stopPropagation()">\${isLiked?'❤️':'🤍'}</button>
+  </div>\`;
+}
+function loadSong(idx){
+  currentIdx=idx;
+  const s=SONGS[idx];
+  document.getElementById('np-art').textContent=s.art;
+  document.getElementById('np-title').textContent=s.title;
+  document.getElementById('np-artist').textContent=s.artist+' · '+s.album;
+  document.getElementById('np-dur').textContent=s.dur;
+  progress=0;document.getElementById('np-progress').style.width='0%';
+  document.getElementById('np-cur').textContent='0:00';
+  renderQueue();
+}
+function renderQueue(){
+  document.getElementById('queue-list').innerHTML=SONGS.map((s,i)=>songHTML(s,i)).join('');
+  attachSongClicks('queue-list');
+  attachLikeClicks('queue-list');
+}
+function renderExplore(q=''){
+  let list=SONGS;if(q)list=SONGS.filter(s=>s.title.toLowerCase().includes(q)||s.artist.toLowerCase().includes(q)||s.genre.includes(q));
+  document.getElementById('explore-list').innerHTML=list.length?list.map((s,i)=>songHTML(s,i,false)).join(''):'<div style="text-align:center;padding:30px;color:#666">Sin resultados</div>';
+  attachSongClicks('explore-list');attachLikeClicks('explore-list');
+}
+function renderPlaylists(){
+  document.getElementById('playlists-list').innerHTML=PLAYLISTS.map(p=>\`
+    <div class="playlist-card">
+      <div class="playlist-thumb" style="background:\${p.color}33">\${p.emoji}</div>
+      <div><div style="font-weight:600;font-size:.95rem">\${p.name}</div><div style="color:#888;font-size:.78rem">\${p.songs.length} canciones</div></div>
+    </div>\`).join('');
+}
+function renderLiked(){
+  const likedSongs=SONGS.filter(s=>liked.has(s.id));
+  document.getElementById('liked-list').innerHTML=likedSongs.length?likedSongs.map((s,i)=>songHTML(s,SONGS.indexOf(s),false)).join(''):'<div style="text-align:center;padding:30px;color:#666">Aún no tienes favoritos ❤️</div>';
+  if(likedSongs.length){attachSongClicks('liked-list');attachLikeClicks('liked-list');}
+}
+function attachSongClicks(containerId){
+  document.getElementById(containerId).querySelectorAll('.song-item').forEach(el=>{
+    el.addEventListener('click',()=>{loadSong(+el.dataset.idx);if(!isPlaying)togglePlay();});
+  });
+}
+function attachLikeClicks(containerId){
+  document.getElementById(containerId).querySelectorAll('.like-btn').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      const id=+btn.dataset.like;
+      if(liked.has(id)){liked.delete(id);btn.textContent='🤍';btn.classList.remove('liked');}
+      else{liked.add(id);btn.textContent='❤️';btn.classList.add('liked');}
+      saveLiked();
+    });
+  });
+}
+function togglePlay(){
+  isPlaying=!isPlaying;
+  document.getElementById('btn-play').textContent=isPlaying?'⏸':'▶';
+  if(isPlaying){
+    interval=setInterval(()=>{
+      progress+=0.5;if(progress>100){progress=0;currentIdx=(currentIdx+1)%SONGS.length;loadSong(currentIdx);}
+      document.getElementById('np-progress').style.width=progress+'%';
+      const total=250;const cur=Math.round(total*progress/100);
+      document.getElementById('np-cur').textContent=Math.floor(cur/60)+':'+(cur%60).toString().padStart(2,'0');
+    },500);
+  }else clearInterval(interval);
+}
+document.getElementById('btn-play').addEventListener('click',togglePlay);
+document.getElementById('btn-next').addEventListener('click',()=>{currentIdx=(currentIdx+1)%SONGS.length;loadSong(currentIdx);});
+document.getElementById('btn-prev').addEventListener('click',()=>{currentIdx=(currentIdx-1+SONGS.length)%SONGS.length;loadSong(currentIdx);});
+document.getElementById('search-songs').addEventListener('input',e=>renderExplore(e.target.value.toLowerCase()));
+
+document.querySelectorAll('.nav-btn').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    const sec=btn.dataset.sec;
+    document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
+    document.getElementById('sec-'+sec).classList.add('active');
+    document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    if(sec==='explore')renderExplore();
+    if(sec==='playlists')renderPlaylists();
+    if(sec==='liked')renderLiked();
+  });
+});
+
+loadSong(0);
 </script>
 </body>
 </html>`;
