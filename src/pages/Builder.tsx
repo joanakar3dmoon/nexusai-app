@@ -13,7 +13,8 @@ const AMZ_TAG   = "r3dm01-21";
 
 // ── Llamada a Groq ───────────────────────────────────────────
 async function callGroq(system: string, user: string, tokens = 8192): Promise<string> {
-  const models = ["qwen/qwen3-32b", "llama-3.3-70b-versatile", "llama-3.1-8b-instant"];
+  // llama-3.3-70b primero (limpio), luego llama-3.1-8b, qwen como último recurso
+  const models = ["llama-3.3-70b-versatile", "llama-3.1-8b-instant", "qwen/qwen3-32b"];
   for (const model of models) {
     try {
       const r = await fetch("https://api.groq.com/openai/v1/chat/completions", {
@@ -39,7 +40,9 @@ async function callGroq(system: string, user: string, tokens = 8192): Promise<st
         continue;
       }
       const d = await r.json();
-      const content = d.choices?.[0]?.message?.content ?? "";
+      let content = d.choices?.[0]?.message?.content ?? "";
+      // Eliminar bloques <think>...</think> que genera qwen3
+      content = content.replace(/<think>[\s\S]*?<\/think>/gi, "").trim();
       if (content.length > 50) return content;
     } catch (e) {
       console.warn(`[${model}] timeout/error:`, e);
