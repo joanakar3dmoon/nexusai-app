@@ -36,7 +36,7 @@ jobs:
         run: npm install
 
       - name: Build Vite modo Capacitor
-run: npx vite build --mode capacitor
+        run: npx vite build --mode capacitor
 
       - name: Add Android platform
         run: npx cap add android
