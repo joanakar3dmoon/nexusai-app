@@ -134,7 +134,7 @@ function LandingPlayground({ navigate }: { navigate: (path: string) => void }) {
             <div className="w-2.5 h-2.5 rounded-full bg-red-500/60" />
             <div className="w-2.5 h-2.5 rounded-full bg-yellow-500/60" />
             <div className="w-2.5 h-2.5 rounded-full bg-green-500/60" />
-            <span className="ml-3 text-xs text-white/30 font-mono">NexusAI — Playground</span>
+            <span className="ml-3 text-xs text-white/30 font-mono">R3DM/JOAN — Playground</span>
             <div className="ml-auto flex items-center gap-1">
               <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
               <span className="text-[10px] text-emerald-400 font-mono">LIVE</span>
@@ -235,10 +235,11 @@ export default function Index() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center gap-2 cursor-pointer" onClick={() => navigate("/")}>
-              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-violet-500 to-cyan-500 flex items-center justify-center">
-                <Cpu className="w-5 h-5 text-white" />
+              <img src="./logo.svg" alt="R3DM/JOAN" className="w-9 h-9 rounded-lg" />
+              <div className="flex flex-col leading-none">
+                <span className="font-black text-base tracking-widest text-red-500" style={{fontFamily:"'Arial Black',Impact,sans-serif",letterSpacing:"0.15em"}}>R3DM</span>
+                <span className="text-[10px] text-white/40 tracking-widest font-mono">/ JOAN</span>
               </div>
-              <span className="font-bold text-lg tracking-tight">NexusAI</span>
             </div>
             <nav className="hidden md:flex items-center gap-6 text-sm text-white/60">
               <button onClick={() => document.getElementById("features")?.scrollIntoView({ behavior: "smooth" })} className="hover:text-white transition-colors">Funciones</button>
@@ -476,11 +477,11 @@ export default function Index() {
         <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-6">
           <div className="flex items-center gap-2">
             <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-violet-500 to-cyan-500 flex items-center justify-center"><Cpu className="w-4 h-4 text-white" /></div>
-            <span className="font-bold text-white">NexusAI</span>
+            <span className="font-black text-red-500 tracking-widest" style={{fontFamily:"'Arial Black',Impact,sans-serif"}}>R3DM<span className="text-white/40 font-normal text-sm"> / JOAN</span></span>
             <span className="text-white/20 text-sm ml-2">Crea con IA. Gana con IA.</span>
           </div>
           <div className="flex flex-wrap justify-center gap-x-6 gap-y-2 text-sm text-white/30">
-            <span>© {new Date().getFullYear()} NexusAI</span>
+            <span>© {new Date().getFullYear()} R3DM / JOAN — NexusAI</span>
             <a href="https://joanakar3dmoon.github.io/nexusai-app/#privacy" className="hover:text-white/60 transition-colors">Privacidad</a>
             <a href="https://joanakar3dmoon.github.io/nexusai-app/#terms" className="hover:text-white/60 transition-colors">Términos</a>
             <a href="mailto:joanlazaro83@gmail.com" className="hover:text-white/60 transition-colors">Contacto</a>
@@ -494,4 +495,5 @@ export default function Index() {
     </div>
   );
 }
+
 
