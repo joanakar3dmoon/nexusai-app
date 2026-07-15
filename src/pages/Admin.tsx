@@ -165,8 +165,8 @@ function StatCard({
 // Main Component
 // ──────────────────────────────────────────────
 // ── Constantes compartidas para los componentes del Creator ──
-const GROQ_KEY = "free";
-const GROQ_URL = "https://api.llm7.io/v1/chat/completions";
+const GROQ_KEY = (import.meta.env.VITE_GROQ_API_KEY as string) || "free";
+const GROQ_URL = GROQ_KEY === "free" ? "https://api.llm7.io/v1/chat/completions" : "https://api.groq.com/openai/v1/chat/completions";
 
 const PLAY_MODELS = [
   { id: "llama", label: "Codestral IA", color: "text-violet-300 border-violet-500/30 bg-violet-500/10", model: "codestral-latest" },
@@ -274,11 +274,9 @@ function AdminPlayground() {
 
 // ── Generador de Apps incrustado en Admin ──────────────────
 const GROQ_MODELS = [
-  "codestral-latest",
-  "codestral-latest",
-  "codestral-latest",
-  "codestral-latest",
-  "codestral-latest",
+  "llama-3.3-70b-versatile",
+  "llama3-70b-8192",
+  "mixtral-8x7b-32768",
 ];
 
 async function buildAppWithFallback(prompt: string): Promise<string> {
