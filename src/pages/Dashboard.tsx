@@ -205,7 +205,7 @@ export default function Dashboard() {
         const s = document.createElement("script");
         s.id = "admob-script";
         s.async = true;
-        s.src = \`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=\${ADMOB_APP_ID}\`;
+        s.src = "https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=" + ADMOB_APP_ID;
         s.crossOrigin = "anonymous";
         document.head.appendChild(s);
       }
