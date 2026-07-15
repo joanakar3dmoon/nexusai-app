@@ -5,10 +5,11 @@ const config: CapacitorConfig = {
   appName: 'NexusAI',
   webDir: 'dist',
   server: {
-    androidScheme: 'https',
+    // Sin URL externa — carga los assets del dist/ empaquetado
     cleartext: true,
   },
   android: {
+    allowMixedContent: true,
     buildOptions: {
       releaseType: 'APK',
     },
@@ -18,10 +19,6 @@ const config: CapacitorConfig = {
       launchShowDuration: 2000,
       backgroundColor: '#080b14',
       showSpinner: false,
-    },
-    AdMob: {
-      appId: 'ca-app-pub-4903263409458961~5751005760',
-      initializeForTesting: false,
     },
   },
 };
