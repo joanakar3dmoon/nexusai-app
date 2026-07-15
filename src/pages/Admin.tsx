@@ -166,12 +166,12 @@ function StatCard({
 // ──────────────────────────────────────────────
 // ── Constantes compartidas para los componentes del Creator ──
 const GROQ_KEY = "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";
-const GROQ_URL = "https://api.groq.com/openai/v1/chat/completions";
+const GROQ_URL = "https://api.llm7.io/v1/chat/completions";
 
 const PLAY_MODELS = [
-  { id: "llama", label: "Llama 3.3 70B", color: "text-violet-300 border-violet-500/30 bg-violet-500/10", model: "llama-3.3-70b-versatile" },
+  { id: "llama", label: "Llama 3.3 70B", color: "text-violet-300 border-violet-500/30 bg-violet-500/10", model: "codestral-latest" },
   { id: "deepseek", label: "DeepSeek R1", color: "text-emerald-300 border-emerald-500/30 bg-emerald-500/10", model: "deepseek-r1-distill-llama-70b" },
-  { id: "mixtral", label: "Mixtral 8x7B", color: "text-cyan-300 border-cyan-500/30 bg-cyan-500/10", model: "mixtral-8x7b-32768" },
+  { id: "mixtral", label: "Mixtral 8x7B", color: "text-cyan-300 border-cyan-500/30 bg-cyan-500/10", model: "codestral-latest" },
   { id: "gemma", label: "Gemma 2 9B", color: "text-pink-300 border-pink-500/30 bg-pink-500/10", model: "gemma2-9b-it" },
 ];
 
@@ -275,10 +275,10 @@ function AdminPlayground() {
 // ── Generador de Apps incrustado en Admin ──────────────────
 const GROQ_MODELS = [
   "meta-llama/llama-4-scout-17b-16e-instruct",
-  "llama-3.3-70b-versatile",
+  "codestral-latest",
   "deepseek-r1-distill-llama-70b",
-  "mixtral-8x7b-32768",
-  "llama-3.1-8b-instant",
+  "codestral-latest",
+  "codestral-latest",
 ];
 
 async function buildAppWithFallback(prompt: string): Promise<string> {
@@ -625,11 +625,11 @@ Sus ingresos actuales:
 - Total anual: €${totalRevenue}
 Tu misión: analizar sus ingresos y sugerir estrategias concretas y reales de reinversión (publicidad, equipamiento, plataformas de música, etc.) para maximizar beneficios.
 Habla en español, directo y práctico. Máximo 3-4 párrafos por respuesta.`;
-      const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      const res = await fetch("https://api.llm7.io/v1/chat/completions", {
         method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: "Bearer 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" },
+        headers: { "Content-Type": "application/json", Authorization: "Bearer free" },
         body: JSON.stringify({
-          model: "llama-3.3-70b-versatile",
+          model: "codestral-latest",
           messages: [
             { role: "system", content: system },
             ...newHistory.map(m => ({ role: m.role, content: m.text })),
