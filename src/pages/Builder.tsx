@@ -1595,20 +1595,25 @@ export default function Builder() {
     setSteps(prev => prev.map(s => s.id === id ? { ...s, status } : s));
   };
 
-  // Forzar remount del iframe cuando cambia el html (solución definitiva cross-browser)
-  const [iframeKey, setIframeKey] = useState(0);
+  // Renderizar HTML en el iframe via contentDocument.write (único método 100% fiable)
   const prevHtmlRef = useRef("");
   useEffect(() => {
-    if (html && html !== prevHtmlRef.current) {
-      prevHtmlRef.current = html;
-      setIframeKey(k => k + 1);
-      // También forzar vía DOM como respaldo para Safari/Firefox
-      setTimeout(() => {
-        if (iframeRef.current) {
-          iframeRef.current.srcdoc = html;
-        }
-      }, 50);
-    }
+    if (!html || html === prevHtmlRef.current) return;
+    prevHtmlRef.current = html;
+    const iframe = iframeRef.current;
+    if (!iframe) return;
+    // Método 1: contentDocument.write — funciona en todos los browsers
+    try {
+      const doc = iframe.contentDocument || iframe.contentWindow?.document;
+      if (doc) {
+        doc.open();
+        doc.write(html);
+        doc.close();
+        return;
+      }
+    } catch (_) {}
+    // Método 2: srcdoc como fallback
+    iframe.srcdoc = html;
   }, [html]);
 
   const handleBuild = async () => {
@@ -1898,10 +1903,8 @@ CERO texto extra. CERO explicaciones.`,
           ) : (
             <div style={viewMode === "mobile" ? { width: 375, height: 700, borderRadius: 32, overflow: "hidden", border: "4px solid #1a1a2e", boxShadow: "0 20px 60px rgba(0,0,0,0.7)" } : { width: "100%", height: "100%" }}>
               <iframe
-                key={iframeKey}
                 ref={iframeRef}
                 title="NexusAI Preview"
-                srcDoc={html || undefined}
                 style={{ width: "100%", height: "100%", border: "none", borderRadius: viewMode === "mobile" ? 28 : 0, background: "#0a0a0f" }}
                 sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
               />
