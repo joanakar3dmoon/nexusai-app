@@ -1230,6 +1230,58 @@ Habla en español, directo y práctico. Máximo 3-4 párrafos por respuesta.`;
                 <Bot className="w-5 h-5 text-emerald-400" /> Bot de Reinversión Financiera 💹
               </h2>
 
+              {/* Historial de Reinversiones */}
+              <Card className="bg-card border-border">
+                <CardHeader>
+                  <CardTitle className="text-sm text-muted-foreground flex items-center gap-2">
+                    <TrendingUp className="w-4 h-4 text-emerald-400" /> Dónde he reinvertido
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="flex gap-2">
+                    <input
+                      className="flex-1 bg-muted border border-border rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                      placeholder="Ej: Micrófono nuevo, Publicidad YouTube..."
+                      value={reinConcepto}
+                      onChange={e => setReinConcepto(e.target.value)}
+                    />
+                    <input
+                      type="number" min="1"
+                      className="w-24 bg-muted border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                      placeholder="€"
+                      value={reinImporte}
+                      onChange={e => setReinImporte(e.target.value)}
+                    />
+                    <Button onClick={guardarReinversion} disabled={reinLoading || !reinConcepto.trim() || !reinImporte}
+                      className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs px-3">
+                      {reinLoading ? "..." : "+ Añadir"}
+                    </Button>
+                  </div>
+                  {reinMsg && <p className={`text-xs font-medium ${reinMsg.startsWith("✅") ? "text-emerald-400" : "text-red-400"}`}>{reinMsg}</p>}
+                  {reinversiones.length === 0 ? (
+                    <p className="text-xs text-muted-foreground text-center py-4">No hay reinversiones registradas aún</p>
+                  ) : (
+                    <div className="space-y-2 max-h-52 overflow-y-auto">
+                      {reinversiones.map(r => (
+                        <div key={r.id} className="flex items-center justify-between bg-muted/40 rounded-lg px-3 py-2">
+                          <div>
+                            <p className="text-sm text-foreground font-medium">{r.concepto}</p>
+                            <p className="text-xs text-muted-foreground">{r.fecha ? new Date(r.fecha).toLocaleDateString("es-ES") : ""}</p>
+                          </div>
+                          <span className="text-emerald-400 font-bold text-sm">€{r.importe}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {reinversiones.length > 0 && (
+                    <p className="text-xs text-muted-foreground text-right">
+                      Total reinvertido: <span className="text-emerald-400 font-bold">€{reinversiones.reduce((a,r)=>a+r.importe,0).toFixed(2)}</span>
+                    </p>
+                  )}
+                </CardContent>
+              </Card>
+
+
               {/* Chat con el bot */}
               <Card className="bg-card border-border">
                 <CardHeader>
@@ -1338,57 +1390,6 @@ Habla en español, directo y práctico. Máximo 3-4 párrafos por respuesta.`;
                   <p className="text-xs text-muted-foreground">
                     💡 Los retiros se procesan en 24-48h laborables directamente a tu cuenta bancaria o tarjeta de débito.
                   </p>
-                </CardContent>
-              </Card>
-
-              {/* Historial de Reinversiones */}
-              <Card className="bg-card border-border">
-                <CardHeader>
-                  <CardTitle className="text-sm text-muted-foreground flex items-center gap-2">
-                    <TrendingUp className="w-4 h-4 text-emerald-400" /> Dónde he reinvertido
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <div className="flex gap-2">
-                    <input
-                      className="flex-1 bg-muted border border-border rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                      placeholder="Ej: Micrófono nuevo, Publicidad YouTube..."
-                      value={reinConcepto}
-                      onChange={e => setReinConcepto(e.target.value)}
-                    />
-                    <input
-                      type="number" min="1"
-                      className="w-24 bg-muted border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                      placeholder="€"
-                      value={reinImporte}
-                      onChange={e => setReinImporte(e.target.value)}
-                    />
-                    <Button onClick={guardarReinversion} disabled={reinLoading || !reinConcepto.trim() || !reinImporte}
-                      className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs px-3">
-                      {reinLoading ? "..." : "+ Añadir"}
-                    </Button>
-                  </div>
-                  {reinMsg && <p className={`text-xs font-medium ${reinMsg.startsWith("✅") ? "text-emerald-400" : "text-red-400"}`}>{reinMsg}</p>}
-                  {reinversiones.length === 0 ? (
-                    <p className="text-xs text-muted-foreground text-center py-4">No hay reinversiones registradas aún</p>
-                  ) : (
-                    <div className="space-y-2 max-h-52 overflow-y-auto">
-                      {reinversiones.map(r => (
-                        <div key={r.id} className="flex items-center justify-between bg-muted/40 rounded-lg px-3 py-2">
-                          <div>
-                            <p className="text-sm text-foreground font-medium">{r.concepto}</p>
-                            <p className="text-xs text-muted-foreground">{r.fecha ? new Date(r.fecha).toLocaleDateString("es-ES") : ""}</p>
-                          </div>
-                          <span className="text-emerald-400 font-bold text-sm">€{r.importe}</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                  {reinversiones.length > 0 && (
-                    <p className="text-xs text-muted-foreground text-right">
-                      Total reinvertido: <span className="text-emerald-400 font-bold">€{reinversiones.reduce((a,r)=>a+r.importe,0).toFixed(2)}</span>
-                    </p>
-                  )}
                 </CardContent>
               </Card>
 
