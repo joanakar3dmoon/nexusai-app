@@ -2,6 +2,7 @@ import { BrainCircuit, Send, Loader2, Download, Code2, Smartphone, Monitor, Chec
 import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/auth";
+import { dbSaveApp } from "@/lib/supabase";
 import { useNavigate } from "react-router-dom";
 
 // ── Credenciales ─────────────────────────────────────────────
@@ -1717,23 +1718,21 @@ IMPORTANTE: Genera datos de ejemplo MUY específicos para esta app (nombres, val
       setIsLive(true);
       addLog("🎨 Preview lista — interactúa con la app");
 
-      // ── 4. Guardar ───────────────────────────────────────
+      // ── 4. Guardar en Supabase ───────────────────────────
       setStep("save", "running");
       if (user) {
         try {
           const id = crypto.randomUUID();
-          const stored = JSON.parse(localStorage.getItem("nexusai_apps") || "[]");
-          stored.push({
-            id, user_id: user.id || user.email,
-            name: meta.name, description: prompt.trim().slice(0, 300),
-            category: meta.category, prompt: prompt.trim(),
-            source_code: finalHtml, status: "published",
-            views: 0, downloads: 0, revenue: 0,
-            created_at: new Date().toISOString(),
+          await dbSaveApp({
+            id,
+            user_id: user.id || user.email,
+            user_email: user.email,
+            name: meta.name,
+            description: prompt.trim().slice(0, 300),
+            html_code: finalHtml,
           });
-          localStorage.setItem("nexusai_apps", JSON.stringify(stored));
           addLog(`💾 Guardada: "${meta.name}"`);
-        } catch { addLog("⚠️ No se pudo guardar"); }
+        } catch (e: any) { addLog("⚠️ No se pudo guardar: " + (e?.message || "")); }
       }
       setStep("save", "done");
       setFinalized(true);
@@ -1917,3 +1916,4 @@ CERO texto extra. CERO explicaciones.`,
     </div>
   );
 }
+
