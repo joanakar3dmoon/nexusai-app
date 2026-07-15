@@ -55,13 +55,16 @@ const testimonials = [
 ];
 
 // ============================================================
-// PLAYGROUND REAL — llama a freellm.net → Groq como fallback
+// PLAYGROUND REAL — modelos Groq
 // ============================================================
+const GROQ_KEY = "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";
+const GROQ_URL = "https://api.groq.com/openai/v1/chat/completions";
 
 const PLAY_MODELS = [
-  { id: "freellm", label: "GPT-4o Mini", color: "text-cyan-300 border-cyan-500/30 bg-cyan-500/10", url: "https://api.freellm.net/v1/chat/completions", model: "gpt-4o-mini-free", key: "free" },
-  { id: "groq", label: "Llama 3.3 70B", color: "text-violet-300 border-violet-500/30 bg-violet-500/10", url: "https://api.groq.com/openai/v1/chat/completions", model: "llama-3.3-70b-versatile", key: "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" },
-  { id: "groq-deepseek", label: "DeepSeek R1", color: "text-emerald-300 border-emerald-500/30 bg-emerald-500/10", url: "https://api.groq.com/openai/v1/chat/completions", model: "deepseek-r1-distill-llama-70b", key: "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" },
+  { id: "llama", label: "Llama 3.3 70B", color: "text-violet-300 border-violet-500/30 bg-violet-500/10", url: GROQ_URL, model: "llama-3.3-70b-versatile", key: GROQ_KEY },
+  { id: "deepseek", label: "DeepSeek R1", color: "text-emerald-300 border-emerald-500/30 bg-emerald-500/10", url: GROQ_URL, model: "deepseek-r1-distill-llama-70b", key: GROQ_KEY },
+  { id: "mixtral", label: "Mixtral 8x7B", color: "text-cyan-300 border-cyan-500/30 bg-cyan-500/10", url: GROQ_URL, model: "mixtral-8x7b-32768", key: GROQ_KEY },
+  { id: "gemma", label: "Gemma 2 9B", color: "text-pink-300 border-pink-500/30 bg-pink-500/10", url: GROQ_URL, model: "gemma2-9b-it", key: GROQ_KEY },
 ];
 
 type ChatMsg = { role: "user" | "assistant"; content: string; model?: string };
@@ -491,3 +494,4 @@ export default function Index() {
     </div>
   );
 }
+
