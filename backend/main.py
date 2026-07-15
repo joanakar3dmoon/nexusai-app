@@ -9,6 +9,7 @@ from database import init_db
 from routes.users import router as users_router
 from routes.apps import router as apps_router
 from routes.finance import router as finance_router
+from routes.payments import router as payments_router
 
 app = FastAPI(title="NexusAI Backend", version="1.0.0")
 
@@ -45,3 +46,4 @@ def health():
 app.include_router(users_router)
 app.include_router(apps_router)
 app.include_router(finance_router)
+app.include_router(payments_router)
