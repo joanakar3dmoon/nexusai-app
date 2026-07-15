@@ -31,7 +31,7 @@ type TabId = "generator" | "myapps" | "monetize" | "credits";
 import { createClient } from "@supabase/supabase-js";
 const _sb = createClient(
   "https://tolzqxflecqbjdefohom.supabase.co",
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRvbHpxeGZsZWNxYmpkZWZvaG9tIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MjA1MjQ2MDAsImV4cCI6MjAzNjEwMDYwMH0.placeholder"
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRvbHpxeGZsZWNxYmpkZWZvaG9tIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4NDEwODA3MCwiZXhwIjoyMDk5Njg0MDcwfQ.FaTcZpS4tVKJl8rIP-Vfv0nMub2bnNJNFFo9t1w7JfU"
 );
 async function loadStoredAppsAsync(): Promise<AppRecord[]> {
   try {
@@ -208,7 +208,7 @@ export default function Dashboard() {
   const [copied, setCopied] = useState(false);
   const [activeTab, setActiveTab] = useState<TabId>("generator");
 
-  useEffect(() => { setApps(loadStoredApps()); }, []);
+  useEffect(() => { loadStoredAppsAsync().then(setApps); }, []);
 
   const addLog = (msg: string) => setStatusLog(prev => [...prev, `[${new Date().toLocaleTimeString()}] ${msg}`]);
 
@@ -232,9 +232,10 @@ export default function Dashboard() {
         created_at: new Date().toISOString(),
         source_code: code,
       };
-      const updated = [newApp, ...apps];
-      setApps(updated);
-      saveApps(updated);
+      try {
+        await _sb.from("apps").insert({ id: newApp.id, user_id: user?.id || user?.email || "anon", user_email: user?.email || "", name: appName, description: prompt.trim().slice(0,300), html_code: code });
+      } catch(e) { console.error("[Supabase] save:", e); }
+      setApps(prev => [newApp, ...prev]);
       setPrompt("");
       addLog(`✅ "${appName}" lista. Ve a "Mis Apps".`);
     } catch (err) {
@@ -242,9 +243,9 @@ export default function Dashboard() {
     } finally { setGenerating(false); }
   };
 
-  const deleteApp = (id: string) => {
-    const updated = apps.filter(a => a.id !== id);
-    setApps(updated); saveApps(updated);
+  const deleteApp = async (id: string) => {
+    await _sb.from("apps").delete().eq("id", id).catch(console.error);
+    setApps(prev => prev.filter(a => a.id !== id));
   };
 
   const downloadApp = (app: AppRecord) => {
