@@ -1,15 +1,13 @@
 {
-  "name": "NexusAI — Crea Apps con IA",
+  "name": "NexusAI — r3dm/joan",
   "short_name": "NexusAI",
-  "description": "Crea tu propia app con IA en minutos. Generador de apps, monetización con AdMob y Amazon. Gratis.",
+  "description": "Plataforma SaaS para creadores — by r3dm/joan",
   "start_url": "/nexusai-app/",
   "scope": "/nexusai-app/",
   "display": "standalone",
-  "orientation": "portrait-primary",
-  "background_color": "#080b14",
-  "theme_color": "#7c3aed",
-  "lang": "es",
-  "categories": ["productivity", "utilities", "developer"],
+  "orientation": "portrait",
+  "background_color": "#0f0f0f",
+  "theme_color": "#0f0f0f",
   "icons": [
     {
       "src": "/nexusai-app/icon-192.png",
@@ -22,31 +20,6 @@
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"
-    }
-  ],
-  "screenshots": [
-    {
-      "src": "/nexusai-app/icon-512.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "form_factor": "narrow",
-      "label": "NexusAI Dashboard"
-    }
-  ],
-  "shortcuts": [
-    {
-      "name": "Generador IA",
-      "short_name": "Generar",
-      "description": "Genera apps con IA en segundos",
-      "url": "/nexusai-app/#/dashboard",
-      "icons": [{ "src": "/nexusai-app/icon-192.png", "sizes": "192x192" }]
-    },
-    {
-      "name": "Panel Admin",
-      "short_name": "Admin",
-      "description": "Panel de administración",
-      "url": "/nexusai-app/#/admin",
-      "icons": [{ "src": "/nexusai-app/icon-192.png", "sizes": "192x192" }]
     }
   ]
 }
