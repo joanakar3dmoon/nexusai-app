@@ -15,7 +15,7 @@ const AMZ_TAG   = "r3dm01-21";
 // ── Llamada a Groq ───────────────────────────────────────────
 async function callGroq(system: string, user: string, tokens = 8192): Promise<string> {
   // llama-4-scout rápido primero, luego llama-3.3-70b, luego llama-3.1-8b
-  const models = ["codestral-latest", "codestral-latest", "codestral-latest"];
+  const models = ["deepseek-v4-flash", "deepseek-v4-flash", "deepseek-v4-flash"];
   for (const model of models) {
     try {
       const r = await fetch("https://api.llm7.io/v1/chat/completions", {
@@ -127,7 +127,7 @@ function injectAds(html: string): string {
       try{
         const r=await fetch('https://api.llm7.io/v1/chat/completions',{
           method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer ${GROQ_KEY}'},
-          body:JSON.stringify({model:'codestral-latest',messages:[{role:'system',content:'Asistente de app. Responde corto en español.'},{role:'user',content:q}],max_tokens:200}),
+          body:JSON.stringify({model:'deepseek-v4-flash',messages:[{role:'system',content:'Asistente de app. Responde corto en español.'},{role:'user',content:q}],max_tokens:200}),
           signal:AbortSignal.timeout(15000)
         });
         const d=await r.json();
