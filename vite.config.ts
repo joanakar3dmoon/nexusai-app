@@ -3,10 +3,11 @@ import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import { resolve } from "path";
 
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
   plugins: [react(), tailwindcss()],
-  // GitHub Pages necesita /nexusai-app/. Capacitor/APK necesita ./
-  base: process.env.BUILD_TARGET === "capacitor" ? "./" : "/nexusai-app/",
+  // mode "capacitor" → rutas relativas ./ para WebView Android
+  // cualquier otro mode → rutas absolutas para GitHub Pages
+  base: mode === "capacitor" ? "./" : "/nexusai-app/",
   resolve: {
     alias: {
       "@": resolve(__dirname, "src"),
@@ -21,4 +22,4 @@ export default defineConfig({
       },
     },
   },
-});
+}));
