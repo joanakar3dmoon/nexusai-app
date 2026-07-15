@@ -970,11 +970,17 @@ export default function Builder() {
   };
 
   // Actualizar iframe
+  // srcdoc se pasa directamente como prop — el useEffect ya no es necesario
+  // pero lo dejamos como respaldo para forzar actualización en Safari
   useEffect(() => {
     if (iframeRef.current && html) {
       iframeRef.current.srcdoc = html;
     }
   }, [html]);
+
+  // Clave única para forzar remount del iframe cuando cambia el html
+  const [iframeKey, setIframeKey] = useState(0);
+  useEffect(() => { if (html) setIframeKey(k => k + 1); }, [html]);
 
   const handleBuild = async () => {
     if (!prompt.trim() || isBuilding) return;
@@ -1262,8 +1268,10 @@ CERO texto extra. CERO explicaciones.`,
           ) : (
             <div style={viewMode === "mobile" ? { width: 375, height: 700, borderRadius: 32, overflow: "hidden", border: "4px solid #1a1a2e", boxShadow: "0 20px 60px rgba(0,0,0,0.7)" } : { width: "100%", height: "100%" }}>
               <iframe
+                key={iframeKey}
                 ref={iframeRef}
                 title="NexusAI Preview"
+                srcDoc={html || undefined}
                 style={{ width: "100%", height: "100%", border: "none", borderRadius: viewMode === "mobile" ? 28 : 0, background: "#0a0a0f" }}
                 sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
               />
