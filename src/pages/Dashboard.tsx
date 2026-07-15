@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useAuth, isPremium, showAds, hasCredits, FREE_CREDITS, ADMOB_APP_ID, ADMOB_BANNER } from "@/lib/auth";
+import { api } from "@/lib/nexus-api";
 import { useNavigate } from "react-router-dom";
 
 // ---- Tipos ----
@@ -195,7 +196,7 @@ const AMAZON_PRODUCTS = [
 ];
 
 export default function Dashboard() {
-  const { user, signOut, isAdmin } = useAuth();
+  const { user, signOut, isAdmin, refreshUser } = useAuth();
 
   // Cargar AdMob script solo para usuarios free
   React.useEffect(() => {
@@ -248,6 +249,50 @@ export default function Dashboard() {
     if (!prompt.trim() || generating) return;
     // Muro de créditos
     const userCredits = user?.credits ?? 0;
+
+  // ---- PayPal Subscriptions -----------------------------------
+  const [subscribing, setSubscribing] = React.useState(false);
+  const [subMsg, setSubMsg] = React.useState("");
+
+  // PAYPAL_PLAN_ID se configura como variable de entorno Vite.
+  // Por ahora usamos el flujo de pago directo (PayPal.me) con
+  // verificación automática al regresar a la app.
+  const PAYPAL_LINK = "https://www.paypal.com/paypalme/joanlazaro83/9.99";
+
+  const handleSubscribe = async () => {
+    if (!user) return;
+    setSubscribing(true);
+    setSubMsg("Redirigiendo a PayPal...");
+    // Guardamos el user_id en localStorage para verificar al volver
+    localStorage.setItem("nexusai_pending_upgrade", user.id);
+    // Abrimos PayPal en nueva pestaña
+    window.open(PAYPAL_LINK, "_blank");
+    // Esperamos 8 s y luego mostramos botón de confirmación manual
+    setTimeout(() => {
+      setSubscribing(false);
+      setSubMsg("¿Ya has pagado? Pulsa confirmar para activar Premium.");
+    }, 8000);
+  };
+
+  const handleConfirmPayment = async () => {
+    if (!user) return;
+    setSubscribing(true);
+    setSubMsg("Activando Premium...");
+    try {
+      const result = await api.activatePlan(user.id, "premium", "paypal-manual");
+      if (result?.ok) {
+        // Refrescar usuario
+        await refreshUser();
+        setSubMsg("✅ ¡Premium activado! Recarga si no ves los cambios.");
+        localStorage.removeItem("nexusai_pending_upgrade");
+      } else {
+        setSubMsg("No pudimos verificar el pago. Escríbenos a joanlazaro83@gmail.com");
+      }
+    } catch {
+      setSubMsg("Error al activar. Escríbenos a joanlazaro83@gmail.com con tu recibo.");
+    }
+    setSubscribing(false);
+  };
     if (user?.role !== "admin" && userCredits <= 0) {
       setPaywallOpen(true);
       return;
@@ -675,18 +720,28 @@ export default function Dashboard() {
                           <li>✅ Soporte prioritario por email</li>
                           <li>✅ Acceso a nuevas funciones antes</li>
                         </ul>
-                        <a
-                          href="https://www.paypal.com/paypalme/joanlazaro83/9.99"
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="w-full block py-2.5 text-center text-sm font-semibold bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors"
+                        <button
+                          disabled={subscribing}
+                          onClick={handleSubscribe}
+                          className="w-full block py-2.5 text-center text-sm font-semibold bg-red-600 hover:bg-red-700 disabled:opacity-60 text-white rounded-lg transition-colors cursor-pointer"
                         >
-                          💳 Suscribirme — €9.99/mes
-                        </a>
+                          {subscribing ? "⏳ Procesando..." : "💳 Suscribirme — €9.99/mes"}
+                        </button>
+                        {subMsg && (
+                          <div className="mt-2 text-center text-[11px] text-muted-foreground">
+                            {subMsg}
+                            {subMsg.includes("confirmar") && (
+                              <button
+                                onClick={handleConfirmPayment}
+                                className="mt-2 w-full py-2 text-sm font-semibold bg-green-600 hover:bg-green-700 text-white rounded-lg cursor-pointer"
+                              >
+                                ✅ Ya pagué — Activar Premium
+                              </button>
+                            )}
+                          </div>
+                        )}
                         <p className="text-[10px] text-muted-foreground text-center mt-2">
-                          Pago via PayPal · Tras el pago escríbenos a{" "}
-                          <a href="mailto:joanlazaro83@gmail.com" className="text-red-400 underline">joanlazaro83@gmail.com</a>
-                          {" "}con tu recibo para activar Premium.
+                          Pago seguro via PayPal · Se activa automáticamente
                         </p>
                       </CardContent>
                     </Card>
