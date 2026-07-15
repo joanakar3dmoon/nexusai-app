@@ -592,35 +592,120 @@ export default function Dashboard() {
             </motion.div>
           )}
 
-          {/* ===== CRÉDITOS ===== */}
+          {/* ===== CRÉDITOS + PRECIOS ===== */}
           {activeTab === "credits" && (
             <motion.div className="space-y-6" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
+
+              {/* Plan actual */}
               <Card>
                 <CardHeader>
                   <CardTitle className="text-base flex items-center gap-2">
                     <DollarSign className="w-5 h-5 text-primary" />
-                    Plan Actual
+                    Tu Plan Actual
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="flex items-center justify-between mb-4">
                     <div>
-                      <h3 className="font-medium">{userIsPremium ? "✨ Plan Premium" : "Plan Free"}</h3>
-                      <p className="text-xs text-muted-foreground">{credits} créditos disponibles</p>
+                      <h3 className="font-medium text-lg">{userIsPremium ? "✨ Premium" : "🆓 Free"}</h3>
+                      <p className="text-xs text-muted-foreground">{userIsPremium ? "Créditos ilimitados · Sin anuncios" : `${credits} de ${FREE_CREDITS} créditos disponibles`}</p>
                     </div>
-                    <Badge className="bg-violet-500/10 text-violet-400 border-violet-500/20">Activo</Badge>
+                    <Badge className={userIsPremium ? "bg-yellow-500/10 text-yellow-400 border-yellow-500/20" : "bg-gray-500/10 text-gray-400 border-gray-500/20"}>
+                      {userIsPremium ? "Premium" : "Free"}
+                    </Badge>
                   </div>
-                  <div className="w-full bg-secondary rounded-full h-2 mb-2">
-                    <div className="bg-primary h-2 rounded-full transition-all" style={{ width: `${Math.min(100, (credits / FREE_CREDITS) * 100)}%` }} />
-                  </div>
-                  <p className="text-xs text-muted-foreground">{credits} de {userIsPremium ? "∞" : FREE_CREDITS} créditos</p>
-                  <div className="mt-4 p-3 rounded-lg bg-violet-500/5 border border-violet-500/20">
-                    <p className="text-xs text-muted-foreground">
-                      {userIsPremium ? "✅ Tienes créditos ilimitados y sin anuncios." : "💡 ¡Pásate a Premium por €9.99/mes! Créditos ilimitados + sin anuncios. Escríbenos: joanlazaro83@gmail.com"}
-                    </p>
-                  </div>
+                  {!userIsPremium && (
+                    <div className="w-full bg-secondary rounded-full h-2 mb-2">
+                      <div className="bg-primary h-2 rounded-full transition-all" style={{ width: `${Math.min(100, (credits / FREE_CREDITS) * 100)}%` }} />
+                    </div>
+                  )}
                 </CardContent>
               </Card>
+
+              {/* Planes de precios */}
+              {!userIsPremium && (
+                <div>
+                  <h2 className="text-base font-semibold mb-4 text-center">🚀 Elige tu plan</h2>
+                  <div className="grid gap-4">
+
+                    {/* Plan Free */}
+                    <Card className="border border-border opacity-80">
+                      <CardContent className="p-5">
+                        <div className="flex items-center justify-between mb-3">
+                          <div>
+                            <h3 className="font-semibold text-base">🆓 Free</h3>
+                            <p className="text-xs text-muted-foreground">Para empezar</p>
+                          </div>
+                          <div className="text-right">
+                            <span className="text-2xl font-bold">€0</span>
+                            <span className="text-xs text-muted-foreground">/mes</span>
+                          </div>
+                        </div>
+                        <ul className="space-y-1 text-xs text-muted-foreground mb-4">
+                          <li>✅ 5 generaciones de apps</li>
+                          <li>✅ Descarga HTML</li>
+                          <li>✅ PWA instalable</li>
+                          <li>⚠️ Anuncios AdMob</li>
+                          <li>❌ Sin APK nativo</li>
+                          <li>❌ Sin soporte</li>
+                        </ul>
+                        <div className="w-full py-2 text-center text-xs text-muted-foreground border border-border rounded-lg">Plan actual</div>
+                      </CardContent>
+                    </Card>
+
+                    {/* Plan Premium */}
+                    <Card className="border-2 border-red-500/60 relative overflow-hidden">
+                      <div className="absolute top-0 right-0 bg-red-600 text-white text-[10px] font-bold px-3 py-1 rounded-bl-lg">⭐ RECOMENDADO</div>
+                      <CardContent className="p-5">
+                        <div className="flex items-center justify-between mb-3">
+                          <div>
+                            <h3 className="font-semibold text-base">✨ Premium</h3>
+                            <p className="text-xs text-muted-foreground">Para creadores serios</p>
+                          </div>
+                          <div className="text-right">
+                            <span className="text-2xl font-bold text-red-400">€9.99</span>
+                            <span className="text-xs text-muted-foreground">/mes</span>
+                          </div>
+                        </div>
+                        <ul className="space-y-1 text-xs mb-4">
+                          <li>✅ <strong>Generaciones ilimitadas</strong></li>
+                          <li>✅ Sin anuncios en la plataforma</li>
+                          <li>✅ Descarga HTML + APK nativo</li>
+                          <li>✅ Apps con tus IDs de AdMob</li>
+                          <li>✅ Soporte prioritario por email</li>
+                          <li>✅ Acceso a nuevas funciones antes</li>
+                        </ul>
+                        <a
+                          href="https://www.paypal.com/paypalme/joanlazaro83/9.99"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="w-full block py-2.5 text-center text-sm font-semibold bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors"
+                        >
+                          💳 Suscribirme — €9.99/mes
+                        </a>
+                        <p className="text-[10px] text-muted-foreground text-center mt-2">
+                          Pago via PayPal · Tras el pago escríbenos a{" "}
+                          <a href="mailto:joanlazaro83@gmail.com" className="text-red-400 underline">joanlazaro83@gmail.com</a>
+                          {" "}con tu recibo para activar Premium.
+                        </p>
+                      </CardContent>
+                    </Card>
+
+                  </div>
+                </div>
+              )}
+
+              {/* Si ya es Premium */}
+              {userIsPremium && (
+                <Card className="border border-yellow-500/30 bg-yellow-500/5">
+                  <CardContent className="p-5 text-center">
+                    <p className="text-2xl mb-2">🎉</p>
+                    <h3 className="font-semibold mb-1">¡Eres Premium!</h3>
+                    <p className="text-xs text-muted-foreground">Tienes acceso completo: generaciones ilimitadas y sin anuncios.</p>
+                  </CardContent>
+                </Card>
+              )}
+
             </motion.div>
           )}
 
