@@ -27,25 +27,40 @@ type AppRecord = {
 
 type TabId = "generator" | "myapps" | "monetize" | "credits";
 
-// ---- localStorage helpers ----
-const APPS_KEY = "nexusai_apps";
-function loadStoredApps(): AppRecord[] {
-  try { return JSON.parse(localStorage.getItem(APPS_KEY) || "[]"); } catch { return []; }
+// ---- Supabase helpers para apps ----
+import { createClient } from "@supabase/supabase-js";
+const _sb = createClient(
+  "https://tolzqxflecqbjdefohom.supabase.co",
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRvbHpxeGZsZWNxYmpkZWZvaG9tIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MjA1MjQ2MDAsImV4cCI6MjAzNjEwMDYwMH0.placeholder"
+);
+async function loadStoredAppsAsync(): Promise<AppRecord[]> {
+  try {
+    const { data } = await _sb.from("apps").select("*").order("created_at", { ascending: false });
+    return (data || []).map((r: any) => ({
+      id: r.id,
+      title: r.title || r.name || "App",
+      prompt: r.prompt || "",
+      html: r.source_code || r.html || "",
+      source_code: r.source_code || r.html || "",
+      createdAt: r.created_at,
+    }));
+  } catch { return []; }
 }
-function saveApps(apps: AppRecord[]) {
-  localStorage.setItem(APPS_KEY, JSON.stringify(apps));
+function loadStoredApps(): AppRecord[] { return []; }
+async function saveApps(apps: AppRecord[]) {
+  // Ya se guarda app por app al crear — no necesitamos bulk save
 }
 
 // ---- Proveedores LLM (solo para el generador) ----
 const LLM_PROVIDERS = [
-  { id: "groq",     url: "https://api.groq.com/openai/v1/chat/completions", model: "llama-3.3-70b-versatile",       keyEnv: "VITE_GROQ_API_KEY" },
-  { id: "deepseek", url: "https://api.groq.com/openai/v1/chat/completions", model: "deepseek-r1-distill-llama-70b", keyEnv: "VITE_GROQ_API_KEY" },
-  { id: "qwen",     url: "https://api.groq.com/openai/v1/chat/completions", model: "qwen-qwq-32b",                  keyEnv: "VITE_GROQ_API_KEY" },
-  { id: "mixtral",  url: "https://api.groq.com/openai/v1/chat/completions", model: "mixtral-8x7b-32768",            keyEnv: "VITE_GROQ_API_KEY" },
+  { id: "groq",     url: "https://api.llm7.io/v1/chat/completions", model: "codestral-latest", keyEnv: "free" },
+  { id: "deepseek", url: "https://api.llm7.io/v1/chat/completions", model: "codestral-latest", keyEnv: "free" },
+  { id: "qwen",     url: "https://api.llm7.io/v1/chat/completions", model: "codestral-latest", keyEnv: "free" },
+  { id: "mixtral",  url: "https://api.llm7.io/v1/chat/completions", model: "codestral-latest", keyEnv: "free" },
   { id: "freellm",  url: "https://api.freellm.net/v1/chat/completions",     model: "gpt-4o-mini-free",              keyEnv: "" },
 ];
 
-const GROQ_KEY = "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";
+const GROQ_KEY = "free";
 
 function generateFallbackApp(prompt: string): string {
   const title = prompt.length > 40 ? prompt.substring(0, 40) + "..." : prompt;
