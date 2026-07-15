@@ -8,8 +8,7 @@ import { useNavigate } from "react-router-dom";
 // ─── constantes ─────────────────────────────────────────────
 const GROQ_KEY  = "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";
 const GROQ_URL  = "https://api.groq.com/openai/v1/chat/completions";
-const GROQ_MDL  = "moonshotai/kimi-k2-instruct";
-const GROQ_MDL2 = "llama-3.3-70b-versatile";  // fallback
+const GROQ_MDL  = "llama-3.3-70b-versatile";
 const ADMOB_PUB = "ca-pub-4903263409458961";
 const ADMOB_BAN = "8825147276";   // banner
 const ADMOB_INT = "4622591073";   // intersticial
@@ -29,21 +28,19 @@ const STEPS: Step[] = [
 ];
 
 // ─── llamada a Groq ─────────────────────────────────────────
-async function groq(system: string, user: string, maxTokens = 8000, model = GROQ_MDL): Promise<string> {
+async function groq(system: string, user: string, maxTokens = 8000): Promise<string> {
   const r = await fetch(GROQ_URL, {
     method: "POST",
     headers: { "Content-Type": "application/json", "Authorization": `Bearer ${GROQ_KEY}` },
     body: JSON.stringify({
-      model,
+      model: GROQ_MDL,
       messages: [{ role: "system", content: system }, { role: "user", content: user }],
-      temperature: 0.7,
+      temperature: 0.6,
       max_tokens: maxTokens,
     }),
-    signal: AbortSignal.timeout(120000),
+    signal: AbortSignal.timeout(90000),
   });
   if (!r.ok) {
-    // Si kimi falla, intenta con llama
-    if (model === GROQ_MDL) return groq(system, user, maxTokens, GROQ_MDL2);
     const err = await r.text().catch(() => r.statusText);
     throw new Error(`Groq ${r.status}: ${err.slice(0, 120)}`);
   }
@@ -139,7 +136,7 @@ document.addEventListener('click',function(e){
     const ub=document.createElement('div');ub.style.cssText='align-self:flex-end;background:#7c3aed;color:#fff;padding:8px 12px;border-radius:12px 12px 2px 12px;font-size:13px;max-width:85%;word-break:break-word;';ub.textContent=txt;msgs.appendChild(ub);msgs.scrollTop=msgs.scrollHeight;
     const lb=document.createElement('div');lb.style.cssText='align-self:flex-start;background:#252540;color:#e0e0e0;padding:8px 12px;border-radius:12px 12px 12px 2px;font-size:13px;max-width:85%;word-break:break-word;';lb.textContent='...';msgs.appendChild(lb);msgs.scrollTop=msgs.scrollHeight;
     try{
-      const r=await fetch('${GROQ_URL}',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer ${GROQ_KEY}'},body:JSON.stringify({model:'${GROQ_MDL}',messages:[{role:'system',content:'Eres un asistente útil integrado en una app NexusAI. Responde de forma concisa en español.'},{role:'user',content:txt}],max_tokens:500})});
+      const r=await fetch('https://api.groq.com/openai/v1/chat/completions',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer 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'},body:JSON.stringify({model:'llama-3.3-70b-versatile',messages:[{role:'system',content:'Eres un asistente útil integrado en una app NexusAI. Responde de forma concisa en español.'},{role:'user',content:txt}],max_tokens:500})});
       const d=await r.json();lb.textContent=d.choices?.[0]?.message?.content||'Sin respuesta';
     }catch(e){lb.textContent='Error al conectar con IA';}
     msgs.scrollTop=msgs.scrollHeight;
@@ -236,63 +233,80 @@ export default function Builder() {
       setStep("analyze", "done");
       addLog(`✅ App: "${meta.name}" (${meta.category})`);
 
-      // ── Paso 2: generar HTML completo ─────────────────────
+      // ── Paso 2: generar app en 2 llamadas ─────────────────
       setStep("build", "running");
-      addLog("⚡ Generando HTML completo con Groq...");
+      addLog("⚡ Generando estructura y lógica...");
 
-      const sysPrompt = `Eres un desarrollador senior experto en crear apps web reales y funcionales con HTML/CSS/JS puro.
-Tu misión: generar una app web COMPLETA, REAL y USABLE que funcione al 100% en un navegador.
+      const c = meta.color || "#7c3aed";
+      const n = meta.name || rawName;
 
-⚠️ REGLAS CRÍTICAS — NO NEGOCIABLES:
-1. Tu respuesta debe comenzar LITERALMENTE con: <!DOCTYPE html>
-2. Tu respuesta debe terminar LITERALMENTE con: </html>
-3. CERO texto antes del DOCTYPE. CERO texto después del </html>. CERO markdown. CERO explicaciones.
-4. TODO el CSS va dentro de <style> en el <head>. TODO el JS va dentro de <script> antes de </body>.
-5. Sin archivos externos excepto Google Fonts.
+      // ── Llamada 1: HTML + JS (sin CSS todavía) ───────────
+      const sys1 = `Eres un programador experto en HTML/JS. Genera SOLO la estructura HTML y el JavaScript de una app.
+SIN CSS por ahora. La app debe funcionar al 100%.
+REGLA: empieza con <!DOCTYPE html> y termina con </html>. Sin markdown. Sin explicaciones. Solo código.`;
 
-DISEÑO OBLIGATORIO:
-- Mobile-first, dark theme profesional
-- :root { --bg: #0a0a0f; --card: #111128; --accent: ${meta.color}; --text: #e0e0e0; }
-- Tipografía Poppins desde fonts.googleapis.com
-- Bordes 12-16px, sombras suaves rgba(0,0,0,0.4), transiciones 0.2s ease
-- Bottom nav fija: 4 botones con emoji + texto, activo resaltado con --accent
-- Header con título de la app y subtítulo
+      const usr1 = `App: "${n}" | Categoría: ${meta.category} | Descripción: ${prompt.trim()}
 
-CONTENIDO REAL OBLIGATORIO:
-- Mínimo 8 items de datos de ejemplo completamente inventados pero realistas
-- Navegación JS entre secciones (show/hide divs, sin reload)
-- Formulario funcional con validación + añade items a la lista
-- Botones de borrar, buscar/filtrar que funcionen de verdad
-- localStorage para persistir entre recargas
-- Métricas/contadores que se actualicen al interactuar
+Genera el HTML+JS completo con:
+- <head> con charset, viewport, Google Fonts Poppins, <style> vacío con solo: body{margin:0;font-family:'Poppins',sans-serif;background:#0a0a0f;color:#e0e0e0}
+- Header con nombre "${n}" y subtítulo
+- 4 secciones (id="sec-home", "sec-list", "sec-add", "sec-profile") — solo una visible a la vez
+- Sección home: 4 tarjetas métricas con datos reales de ejemplo
+- Sección list: lista con 8+ items de ejemplo reales, buscador funcional
+- Sección add: formulario completo con validación que añade items a la lista
+- Sección profile: perfil con localStorage
+- Bottom nav fija con 4 botones: 🏠Inicio 📋Lista ➕Añadir 👤Perfil
+- Todo el JS en un <script> al final: navegación entre secciones, CRUD funcional, localStorage
+- Los datos de ejemplo deben ser ESPECÍFICOS para la app (no genéricos)`;
 
-4 SECCIONES MÍNIMAS:
-1. 🏠 Inicio — dashboard con 3-4 tarjetas de métricas + resumen visual
-2. 📋 Lista — todos los items con buscador funcional + filtros
-3. ➕ Añadir — formulario completo con validación visual
-4. ⚙️ Perfil — datos guardados en localStorage + opciones
-
-CÓDIGO LIMPIO: event listeners en JS (no onclick inline), funciones nombradas, manejo de estado vacío.`;
-
-      const userMsg = `Crea una app web REAL y FUNCIONAL.
-Nombre: "${meta.name}"
-Categoría: ${meta.category}
-Color acento: ${meta.color}
-Features específicas: ${meta.features.join(", ") || "interfaz moderna, datos reales, interactiva"}
-Lo que pidió el usuario: "${prompt.trim()}"
-
-Recuerda: datos de ejemplo REALES, formularios que funcionen, navegación entre secciones. NO placeholders.`;
-
-      let finalHtml = "";
+      let htmlBase = "";
       try {
-        const raw = await groq(sysPrompt, userMsg, 32000);
-        finalHtml = extractHTML(raw, meta.name, meta.color);
-        if (!finalHtml.includes("<html")) throw new Error("No HTML en respuesta");
-        addLog("✅ HTML generado correctamente");
-      } catch (e) {
-        addLog(`⚠️ Error Groq: ${e instanceof Error ? e.message : e} — usando fallback`);
-        finalHtml = fallbackHTML(meta.name, meta.color);
+        const raw1 = await groq(sys1, usr1, 12000);
+        htmlBase = extractHTML(raw1, n, c);
+        addLog(`✅ Estructura generada (${(htmlBase.length/1024).toFixed(1)}KB)`);
+      } catch(e) {
+        addLog(`⚠️ Error estructura: ${e instanceof Error ? e.message : e}`);
+        htmlBase = fallbackHTML(n, c);
       }
+
+      // ── Llamada 2: CSS profesional ───────────────────────
+      addLog("🎨 Generando estilos...");
+      const sys2 = `Eres un experto en CSS mobile-first. Genera SOLO el bloque CSS completo (sin <style> tags).
+Sin markdown. Sin explicaciones. Solo el CSS puro.`;
+
+      const usr2 = `CSS para app "${n}" dark theme:
+:root { --bg:#0a0a0f; --card:#111128; --accent:${c}; --text:#e0e0e0; --border:rgba(255,255,255,0.08) }
+Necesito estilos para:
+- body, header (bg card, padding 16px, border-bottom 1px var(--border))
+- .metrics-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; padding:16px }
+- .metric-card { background:var(--card); border-radius:14px; padding:16px; border:1px solid var(--border) }
+- .list-item { background:var(--card); border-radius:12px; padding:14px 16px; margin:8px 16px; display:flex; align-items:center; gap:12px; border:1px solid var(--border) }
+- .list-item:hover { border-color:${c}44; transform:translateX(2px); transition:all 0.2s }
+- .btn-primary { background:${c}; color:#fff; border:none; padding:12px 20px; border-radius:10px; cursor:pointer; font-size:1rem; font-weight:600; width:100% }
+- .form-input { background:#1a1a2e; border:1px solid var(--border); border-radius:10px; padding:12px; color:var(--text); font-size:1rem; width:100%; margin-bottom:12px }
+- .search-input { background:#1a1a2e; border:1px solid var(--border); border-radius:10px; padding:10px 16px; color:var(--text); width:100%; margin:16px; width:calc(100% - 32px) }
+- .bottom-nav { position:fixed; bottom:0; width:100%; background:var(--card); display:flex; justify-content:space-around; padding:10px; border-top:1px solid var(--border); z-index:100 }
+- .nav-btn { background:none; border:none; color:#888; cursor:pointer; display:flex; flex-direction:column; align-items:center; font-size:10px; gap:2px; transition:color 0.2s }
+- .nav-btn.active { color:${c} }
+- .nav-btn span:first-child { font-size:20px }
+- section { display:none; padding-bottom:80px } section.active { display:block }
+- .badge { background:${c}22; color:${c}; padding:2px 8px; border-radius:20px; font-size:11px }
+- .delete-btn { background:none; border:none; color:#ef4444; cursor:pointer; font-size:18px; margin-left:auto }
+- .empty-state { text-align:center; padding:40px 20px; color:#555 }`;
+
+      try {
+        const css = await groq(sys2, usr2, 4000);
+        // Insertar el CSS en el <style> vacío
+        htmlBase = htmlBase.replace(
+          /(<style[^>]*>)([\s\S]*?)(<\/style>)/i,
+          `$1\n${css.replace(/^```css?\n?/i,"").replace(/\n?```$/i,"").trim()}\n$3`
+        );
+        addLog("✅ Estilos aplicados");
+      } catch(e) {
+        addLog("⚠️ CSS con estilos básicos");
+      }
+
+      let finalHtml = htmlBase;
       setStep("build", "done");
 
       // ── Paso 3 & 4: inyectar AdMob + Amazon + Chat IA ────
