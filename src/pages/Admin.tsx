@@ -283,17 +283,52 @@ async function buildAppWithFallback(prompt: string): Promise<string> {
   const ADMOB_APP_ID   = "ca-app-pub-4903263409458961~5751005760";
   const ADMOB_BANNER   = "ca-app-pub-4903263409458961/8825147276";
   const AMAZON_TAG     = "r3dm01-21";
-  const systemPrompt = `Eres NexusAI Builder. Genera una app web PWA completa en un solo archivo HTML.
-REGLAS ESTRICTAS:
-- Empieza EXACTAMENTE con <!DOCTYPE html> — sin texto antes
-- Termina EXACTAMENTE con </html> — sin texto después
-- CSS en <style> dentro de <head>. JS en <script> antes de </body>
-- Dark theme mobile-first, Poppins de Google Fonts
-- Bottom navigation con 4 secciones y emojis
-- Integra AdMob: <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${ADMOB_APP_ID}" crossorigin="anonymous"></script>
-- Banner fijo abajo: data-ad-client="${ADMOB_APP_ID}" data-ad-slot="8825147276"
-- Al menos 2 enlaces afiliado Amazon: https://www.amazon.es/s?k=PRODUCTO&tag=${AMAZON_TAG}
-- Devuelve SOLO el HTML completo, cero explicaciones, cero markdown`;
+  const systemPrompt = `Eres NexusAI Builder. Genera una app web PWA instalable en UN SOLO archivo HTML autocontenido.
+
+REGLAS ABSOLUTAS:
+- Empieza EXACTAMENTE con <!DOCTYPE html> sin texto antes
+- Termina EXACTAMENTE con </html> sin texto despues
+- CSS en <style> en <head>. JS en <script> antes de </body>
+- NO uses recursos externos excepto Google Fonts y AdMob
+
+DISENO OBLIGATORIO:
+- Dark theme profesional (#0f0f0f fondo, violeta #7c3aed y cyan #06b6d4 como acentos)
+- Fuente Poppins desde Google Fonts
+- Bottom navigation fija con 4-5 secciones con emojis
+- Cards con glassmorphism (backdrop-filter blur)
+- 100% responsive y funciona offline
+
+PWA - incluye en <head>:
+<meta name="theme-color" content="#0f0f0f">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="manifest" href="data:application/json,{%22name%22:%22App%22,%22short_name%22:%22App%22,%22start_url%22:%22.%22,%22display%22:%22standalone%22,%22background_color%22:%22%230f0f0f%22,%22theme_color%22:%22%230f0f0f%22}">
+
+SERVICE WORKER - incluye justo antes de </body>:
+<script>
+if('serviceWorker' in navigator){
+  const sw="self.addEventListener('install',e=>e.waitUntil(caches.open('v1').then(c=>c.addAll(['.']))));self.addEventListener('fetch',e=>e.respondWith(caches.match(e.request).then(r=>r||fetch(e.request))))";
+  const b=new Blob([sw],{type:'text/javascript'});
+  navigator.serviceWorker.register(URL.createObjectURL(b)).catch(()=>{});
+}
+</script>
+
+ADMOB:
+<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${ADMOB_APP_ID}" crossorigin="anonymous"></script>
+Banner fijo abajo con data-ad-client="${ADMOB_APP_ID}" data-ad-slot="8825147276"
+Boton "Instalar App" en pantalla principal usando beforeinstallprompt
+
+AMAZON:
+- 3 productos en cards con imagen, precio estimado y boton de compra
+- URLs: https://www.amazon.es/s?k=KEYWORD&tag=${AMAZON_TAG}
+
+CONTENIDO:
+- Minimo 50 lineas de contenido real relacionado con el tema
+- Seccion busqueda funcional con JS
+- Seccion favoritos con localStorage
+- Todo en espanol
+
+Devuelve SOLO el HTML. Cero explicaciones, cero markdown.`;
 
   for (const model of GROQ_MODELS) {
     try {
@@ -334,6 +369,27 @@ REGLAS ESTRICTAS:
   // Fallback local
   const title = prompt.length > 40 ? prompt.slice(0, 40) + "..." : prompt;
   return `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>App NexusAI</title><style>*{margin:0;padding:0;box-sizing:border-box}body{background:#0a0a1a;color:#fff;font-family:system-ui,sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;flex-direction:column;gap:16px;padding:20px;text-align:center}.card{background:#1a1a2e;border:1px solid #ffffff15;border-radius:16px;padding:24px;max-width:400px;width:100%}h1{font-size:1.4rem;color:#a78bfa;margin-bottom:8px}p{color:#888;font-size:.9rem;line-height:1.5}.btn{background:linear-gradient(135deg,#7c3aed,#06b6d4);color:#fff;border:none;padding:12px 24px;border-radius:12px;font-size:1rem;cursor:pointer;margin-top:16px;width:100%}</style></head><body><div class="card"><h1>🤖 ${title}</h1><p>App generada con NexusAI. Personaliza este contenido según tus necesidades.</p><button class="btn" onclick="alert('Funcionando!')">Comenzar</button></div></body></html>`;
+}
+
+// ── APK Builder ──────────────────────────────────────────────────
+function buildApk(htmlCode: string, appName: string) {
+  const name = appName.slice(0, 30).replace(/[^a-z0-9]/gi, "-").toLowerCase() || "nexusai-app";
+  const msg = "Generando APK: " + name + "\n\nOpciones:\n1) INSTALAR como PWA: abre la app en Chrome Android y toca 'Agregar a inicio'\n2) APK real: ve a https://github.com/joanakar3dmoon/nexusai-app/actions y lanza 'Build APK'";
+  
+  // Descargar HTML optimizado para empaquetado APK
+  const apkHtml = htmlCode
+    .replace("</head>", '<meta name="theme-color" content="#0f0f0f">\n<meta name="mobile-web-app-capable" content="yes">\n</head>');
+  const blob = new Blob([apkHtml], { type: "text/html" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = name + "-apk-ready.html";
+  a.click();
+  
+  setTimeout(() => {
+    if (confirm(msg + "\n\n¿Abrir GitHub Actions para compilar APK real?")) {
+      window.open("https://github.com/joanakar3dmoon/nexusai-app/actions", "_blank");
+    }
+  }, 500);
 }
 
 interface SavedApp { id: string; name: string; html: string; prompt: string; createdAt: string; }
@@ -485,7 +541,11 @@ function AdminAppBuilder() {
                   </button>
                   <button onClick={() => downloadApp()}
                     className="flex-1 bg-violet-600/20 border border-violet-500/30 text-violet-300 text-xs py-2 rounded-lg hover:bg-violet-600/30 cursor-pointer">
-                    ⬇ Descargar HTML
+                    ⬇ HTML
+                  </button>
+                  <button onClick={() => buildApk(generatedCode, prompt)}
+                    className="flex-1 bg-orange-600/20 border border-orange-500/30 text-orange-300 text-xs py-2 rounded-lg hover:bg-orange-600/30 cursor-pointer">
+                    📦 APK
                   </button>
                   <button onClick={() => navigator.clipboard.writeText(generatedCode)}
                     className="flex-1 bg-white/5 border border-white/10 text-white/50 text-xs py-2 rounded-lg hover:bg-white/10 cursor-pointer">
@@ -529,8 +589,10 @@ function AdminAppBuilder() {
                     <div className="flex gap-1">
                       <button onClick={() => loadApp(app)} title="Cargar"
                         className="bg-violet-600/20 border border-violet-500/30 text-violet-300 text-xs px-2 py-1.5 rounded-lg hover:bg-violet-600/30 cursor-pointer">✏️</button>
-                      <button onClick={() => downloadApp(app.html, app.name)} title="Descargar"
+                      <button onClick={() => downloadApp(app.html, app.name)} title="Descargar HTML"
                         className="bg-emerald-600/20 border border-emerald-500/30 text-emerald-300 text-xs px-2 py-1.5 rounded-lg hover:bg-emerald-600/30 cursor-pointer">⬇</button>
+                      <button onClick={() => buildApk(app.html, app.name)} title="Generar APK"
+                        className="bg-orange-600/20 border border-orange-500/30 text-orange-300 text-xs px-2 py-1.5 rounded-lg hover:bg-orange-600/30 cursor-pointer">📦</button>
                       <button onClick={() => deleteApp(app.id)} title="Eliminar"
                         className="bg-red-600/20 border border-red-500/30 text-red-400 text-xs px-2 py-1.5 rounded-lg hover:bg-red-600/30 cursor-pointer">🗑</button>
                     </div>
