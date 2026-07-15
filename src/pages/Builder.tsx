@@ -1595,18 +1595,21 @@ export default function Builder() {
     setSteps(prev => prev.map(s => s.id === id ? { ...s, status } : s));
   };
 
-  // Actualizar iframe
-  // srcdoc se pasa directamente como prop — el useEffect ya no es necesario
-  // pero lo dejamos como respaldo para forzar actualización en Safari
+  // Forzar remount del iframe cuando cambia el html (solución definitiva cross-browser)
+  const [iframeKey, setIframeKey] = useState(0);
+  const prevHtmlRef = useRef("");
   useEffect(() => {
-    if (iframeRef.current && html) {
-      iframeRef.current.srcdoc = html;
+    if (html && html !== prevHtmlRef.current) {
+      prevHtmlRef.current = html;
+      setIframeKey(k => k + 1);
+      // También forzar vía DOM como respaldo para Safari/Firefox
+      setTimeout(() => {
+        if (iframeRef.current) {
+          iframeRef.current.srcdoc = html;
+        }
+      }, 50);
     }
   }, [html]);
-
-  // Clave única para forzar remount del iframe cuando cambia el html
-  const [iframeKey, setIframeKey] = useState(0);
-  useEffect(() => { if (html) setIframeKey(k => k + 1); }, [html]);
 
   const handleBuild = async () => {
     if (!prompt.trim() || isBuilding) return;
