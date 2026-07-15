@@ -134,7 +134,7 @@ function LandingPlayground({ navigate }: { navigate: (path: string) => void }) {
             <div className="w-2.5 h-2.5 rounded-full bg-red-500/60" />
             <div className="w-2.5 h-2.5 rounded-full bg-yellow-500/60" />
             <div className="w-2.5 h-2.5 rounded-full bg-green-500/60" />
-            <span className="ml-3 text-xs text-white/30 font-mono">r3dm/Joan — Playground</span>
+            <span className="ml-3 text-xs text-red-400/80 font-mono font-bold tracking-wider">r3dm/Joan</span>
             <div className="ml-auto flex items-center gap-1">
               <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
               <span className="text-[10px] text-emerald-400 font-mono">LIVE</span>
@@ -235,7 +235,7 @@ export default function Index() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center gap-2 cursor-pointer" onClick={() => navigate("/")}>
-              <img src="./logo.svg" alt="r3dm/Joan" className="w-9 h-9 rounded-lg" />
+              <img src="./nexusai-logo.png" alt="NexusAI" className="w-10 h-10 rounded-full object-cover border border-red-500/40" />
               <div className="flex flex-col leading-none">
                 <span className="font-black text-base tracking-widest text-red-500" style={{fontFamily:"'Arial Black',Impact,sans-serif",letterSpacing:"0.15em"}}>r3dm</span>
                 <span className="text-[10px] text-white/40 tracking-widest font-mono">/Joan</span>
