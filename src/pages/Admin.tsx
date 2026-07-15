@@ -4,7 +4,7 @@ import {
   BarChart3, Users, DollarSign, CreditCard, Shield,
   LogOut, Menu, X, Check, AlertCircle, Trash2, Ban,
   ShoppingCart, Wallet, TrendingUp, Bot, Euro, Activity,
-  ChevronRight, RefreshCw,
+  ChevronRight, RefreshCw, Cpu,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -47,7 +47,7 @@ interface Withdrawal {
   note?: string;
 }
 
-type Tab = "dashboard" | "users" | "apps" | "withdrawals" | "stats" | "bot";
+type Tab = "dashboard" | "users" | "apps" | "withdrawals" | "stats" | "bot" | "creator";
 
 // ──────────────────────────────────────────────
 // Helpers
@@ -338,6 +338,7 @@ Habla en español, directo y práctico. Máximo 3-4 párrafos por respuesta.`;
     { id: "withdrawals", icon: Wallet, label: "Retiros", badge: pendingCount || undefined },
     { id: "stats", icon: Activity, label: "Estadísticas" },
     { id: "bot", icon: Bot, label: "Bot Reinversión 💹" },
+    { id: "creator", icon: Cpu, label: "🛠️ Crear App" },
   ];
 
   // ── Render guard ─────────────────────────────
@@ -962,11 +963,44 @@ Habla en español, directo y práctico. Máximo 3-4 párrafos por respuesta.`;
             </motion.div>
           )}
 
+          {/* TAB: Crear App */}
+          {activeTab === "creator" && (
+            <motion.div key="creator" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-5">
+              <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
+                <Cpu className="w-5 h-5 text-red-400" /> Generador de Apps — r3dm/Joan
+              </h2>
+              <p className="text-sm text-muted-foreground">Acceso exclusivo de administrador. Crea tus apps directamente desde aquí.</p>
+              <div className="flex flex-col sm:flex-row gap-3">
+                <Button
+                  className="flex-1 bg-red-600 hover:bg-red-700 text-white font-semibold"
+                  onClick={() => navigate("/dashboard")}
+                >
+                  <Cpu className="w-4 h-4 mr-2" /> Ir al Generador de Apps
+                </Button>
+                <Button
+                  variant="outline"
+                  className="flex-1 border-red-500/40 text-red-400 hover:bg-red-500/10"
+                  onClick={() => navigate("/builder")}
+                >
+                  <ChevronRight className="w-4 h-4 mr-2" /> Builder Avanzado
+                </Button>
+              </div>
+              <Card className="border-red-500/20 bg-red-500/5">
+                <CardContent className="pt-4 text-sm text-muted-foreground space-y-2">
+                  <p>💡 <strong className="text-foreground">Consejo:</strong> Desde el Dashboard puedes generar apps completas con IA escribiendo en texto.</p>
+                  <p>🔧 El Builder avanzado te da control total sobre el código generado.</p>
+                  <p>📲 Las apps generadas se pueden exportar como APK o PWA instalable.</p>
+                </CardContent>
+              </Card>
+            </motion.div>
+          )}
+
         </div>
       </main>
     </div>
   );
 }
+
 
 
 
