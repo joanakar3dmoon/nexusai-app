@@ -134,6 +134,20 @@ export const api = {
 
   simulateROI: () =>
     apiFetch("/api/finance/simulate-roi", { method: "POST" }),
+
+  // ============================================================
+  // PAYMENTS — Plan Premium / PayPal
+  // ============================================================
+  activatePlan: (userId: string, plan: string, subscriptionId?: string) =>
+    apiFetch("/api/payments/activate", {
+      method: "POST",
+      body: JSON.stringify({ user_id: userId, plan, months: 1, paypal_subscription_id: subscriptionId || "" }),
+    }),
+
+  planStatus: (userId: string) =>
+    apiFetch(`/api/payments/status/${userId}`),
+
 };
+
 
 export default api;
