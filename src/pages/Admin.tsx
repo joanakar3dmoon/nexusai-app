@@ -300,30 +300,37 @@ REGLAS ESTRICTAS:
     try {
       const ctrl = new AbortController();
       const timer = setTimeout(() => ctrl.abort(), 55000);
-      const res = await fetch(GROQ_URL, {
-        method: "POST",
-        signal: ctrl.signal,
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${GROQ_KEY}` },
-        body: JSON.stringify({
-          model,
-          messages: [
-            { role: "system", content: systemPrompt },
-            { role: "user", content: prompt },
-          ],
-          max_tokens: 8192,
-          temperature: 0.7,
-        }),
-      });
-      clearTimeout(timer);
-      if (!res.ok) continue;
+      let res: Response;
+      try {
+        res = await fetch(GROQ_URL, {
+          method: "POST",
+          signal: ctrl.signal,
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${GROQ_KEY}` },
+          body: JSON.stringify({
+            model,
+            messages: [
+              { role: "system", content: systemPrompt },
+              { role: "user", content: prompt },
+            ],
+            max_tokens: 8192,
+            temperature: 0.7,
+          }),
+        });
+      } finally {
+        clearTimeout(timer);
+      }
+      if (!res.ok) {
+        const errTxt = await res.text().catch(() => "");
+        console.warn(`[NexusAI] modelo ${model} -> HTTP ${res.status}`, errTxt);
+        continue;
+      }
       const data = await res.json();
       let code: string = data.choices?.[0]?.message?.content ?? "";
-      // Limpiar markdown y think tags
       code = code.replace(/<think>[\s\S]*?<\/think>/gi, "").trim();
-      if (code.includes("```html")) code = code.split("```html")[1].split("```")[0].trim();
-      else if (code.includes("```")) code = code.split("```")[1].split("```")[0].trim();
+      if (code.includes("\`\`\`html")) code = code.split("\`\`\`html")[1].split("\`\`\`")[0].trim();
+      else if (code.includes("\`\`\`")) code = code.split("\`\`\`")[1].split("\`\`\`")[0].trim();
       if (code.length > 300 && code.includes("</html>")) return code;
-    } catch { continue; }
+    } catch(e) { console.warn(`[NexusAI] modelo ${model} excepción:`, e); continue; }
   }
   // Fallback local
   const title = prompt.length > 40 ? prompt.slice(0, 40) + "..." : prompt;
@@ -352,9 +359,11 @@ function AdminAppBuilder() {
       setGeneratedCode(code);
       addLog("✅ App generada — AdMob + Amazon integrados");
       setPreview(true);
-    } catch {
-      setError("Error al generar. Intenta de nuevo.");
-      addLog("❌ Error en la generación");
+    } catch(e: any) {
+      const msg = e?.message || String(e) || "Error desconocido";
+      setError(`Error: ${msg}`);
+      addLog(`❌ ${msg}`);
+      console.error("[NexusAI] generate error:", e);
     } finally {
       setLoading(false);
     }
@@ -1302,6 +1311,7 @@ Habla en español, directo y práctico. Máximo 3-4 párrafos por respuesta.`;
     </div>
   );
 }
+
 
 
 
