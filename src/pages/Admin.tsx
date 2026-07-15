@@ -195,43 +195,7 @@ export default function Admin() {
 
   useEffect(() => {
     loadData();
-    // Seed demo data if empty
-    seedDemoData();
   }, [loadData]);
-
-  function seedDemoData() {
-    // Seed sample users if none
-    if (!localStorage.getItem("nexusai_users")) {
-      const demo: StoredUser[] = [
-        { id: "u1", email: "alice@example.com", name: "Alice", role: "user", credits: 85, balance: 0, banned: false, createdAt: "2026-06-10" },
-        { id: "u2", email: "bob@example.com", name: "Bob", role: "user", credits: 20, balance: 0, banned: false, createdAt: "2026-06-22" },
-        { id: "u3", email: "carol@example.com", name: "Carol", role: "user", credits: 200, balance: 0, banned: false, createdAt: "2026-07-01" },
-      ];
-      lsSet("nexusai_users", demo);
-      setUsers(demo);
-    }
-    // Seed sample apps
-    if (!localStorage.getItem("nexusai_apps")) {
-      const demoApps: StoredApp[] = [
-        { id: "a1", name: "TodoApp Pro", userId: "u1", userEmail: "alice@example.com", createdAt: "2026-06-15", status: "active", platform: "Android" },
-        { id: "a2", name: "WeatherWidget", userId: "u2", userEmail: "bob@example.com", createdAt: "2026-06-28", status: "active", platform: "iOS" },
-        { id: "a3", name: "FitTracker", userId: "u3", userEmail: "carol@example.com", createdAt: "2026-07-05", status: "active", platform: "Android" },
-        { id: "a4", name: "MusicMix AI", userId: "u1", userEmail: "alice@example.com", createdAt: "2026-07-09", status: "active", platform: "Android" },
-      ];
-      lsSet("nexusai_apps", demoApps);
-      setApps(demoApps);
-    }
-    // Seed sample withdrawals
-    if (!localStorage.getItem("nexusai_withdrawals")) {
-      const demoW: Withdrawal[] = [
-        { id: "w1", userId: "u1", userEmail: "alice@example.com", amount: 50, status: "pending", createdAt: "2026-07-10", paypalEmail: "alice@example.com" },
-        { id: "w2", userId: "u3", userEmail: "carol@example.com", amount: 120, status: "pending", createdAt: "2026-07-11", paypalEmail: "carol@example.com" },
-        { id: "w3", userId: "u2", userEmail: "bob@example.com", amount: 30, status: "approved", createdAt: "2026-07-08", paypalEmail: "bob@example.com", note: `Enviado a PayPal ${PAYPAL_EMAIL}` },
-      ];
-      lsSet("nexusai_withdrawals", demoW);
-      setWithdrawals(demoW);
-    }
-  }
 
   // ── Actions: Users ──────────────────────────
   function toggleBan(id: string) {
@@ -1003,5 +967,6 @@ Habla en español, directo y práctico. Máximo 3-4 párrafos por respuesta.`;
     </div>
   );
 }
+
 
 
