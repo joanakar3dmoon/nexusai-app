@@ -549,6 +549,53 @@ export default function Admin() {
   const [botInput, setBotInput] = useState("");
   const [botLoading, setBotLoading] = useState(false);
   const botEndRef = useRef<HTMLDivElement>(null);
+  // Historial de reinversiones reales
+  const [reinversiones, setReinversiones] = useState<Array<{id:string;concepto:string;importe:number;fecha:string}>>([]);
+  const [reinConcepto, setReinConcepto] = useState("");
+  const [reinImporte, setReinImporte] = useState("");
+  const [reinLoading, setReinLoading] = useState(false);
+  const [reinMsg, setReinMsg] = useState("");
+
+  // Cargar reinversiones de Supabase (usamos withdrawals con note="reinversion")
+  useEffect(() => {
+    dbGetWithdrawals().then(ws => {
+      const rein = ws.filter(w => w.note?.startsWith("reinversion:")).map(w => ({
+        id: w.id,
+        concepto: w.note.replace("reinversion:", "").trim(),
+        importe: w.amount,
+        fecha: w.created_at || "",
+      }));
+      setReinversiones(rein);
+    }).catch(() => {});
+  }, []);
+
+  async function guardarReinversion() {
+    const concepto = reinConcepto.trim();
+    const importe = parseFloat(reinImporte);
+    if (!concepto || !importe || importe <= 0 || reinLoading) return;
+    setReinLoading(true);
+    setReinMsg("");
+    try {
+      const rec = {
+        id: crypto.randomUUID(),
+        user_id: "admin-joan",
+        user_email: "joanlazaro83@gmail.com",
+        amount: importe,
+        status: "approved" as const,
+        note: `reinversion:${concepto}`,
+      };
+      await dbSaveWithdrawal(rec);
+      const nueva = { id: rec.id, concepto, importe, fecha: new Date().toISOString() };
+      setReinversiones(prev => [nueva, ...prev]);
+      setReinConcepto("");
+      setReinImporte("");
+      setReinMsg("✅ Reinversión guardada");
+    } catch {
+      setReinMsg("❌ Error al guardar");
+    } finally {
+      setReinLoading(false);
+    }
+  }
 
   // ── Retiro a tarjeta ───────────────────────
   const [withdrawAmt, setWithdrawAmt] = useState("");
@@ -1291,6 +1338,57 @@ Habla en español, directo y práctico. Máximo 3-4 párrafos por respuesta.`;
                   <p className="text-xs text-muted-foreground">
                     💡 Los retiros se procesan en 24-48h laborables directamente a tu cuenta bancaria o tarjeta de débito.
                   </p>
+                </CardContent>
+              </Card>
+
+              {/* Historial de Reinversiones */}
+              <Card className="bg-card border-border">
+                <CardHeader>
+                  <CardTitle className="text-sm text-muted-foreground flex items-center gap-2">
+                    <TrendingUp className="w-4 h-4 text-emerald-400" /> Dónde he reinvertido
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="flex gap-2">
+                    <input
+                      className="flex-1 bg-muted border border-border rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                      placeholder="Ej: Micrófono nuevo, Publicidad YouTube..."
+                      value={reinConcepto}
+                      onChange={e => setReinConcepto(e.target.value)}
+                    />
+                    <input
+                      type="number" min="1"
+                      className="w-24 bg-muted border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                      placeholder="€"
+                      value={reinImporte}
+                      onChange={e => setReinImporte(e.target.value)}
+                    />
+                    <Button onClick={guardarReinversion} disabled={reinLoading || !reinConcepto.trim() || !reinImporte}
+                      className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs px-3">
+                      {reinLoading ? "..." : "+ Añadir"}
+                    </Button>
+                  </div>
+                  {reinMsg && <p className={`text-xs font-medium ${reinMsg.startsWith("✅") ? "text-emerald-400" : "text-red-400"}`}>{reinMsg}</p>}
+                  {reinversiones.length === 0 ? (
+                    <p className="text-xs text-muted-foreground text-center py-4">No hay reinversiones registradas aún</p>
+                  ) : (
+                    <div className="space-y-2 max-h-52 overflow-y-auto">
+                      {reinversiones.map(r => (
+                        <div key={r.id} className="flex items-center justify-between bg-muted/40 rounded-lg px-3 py-2">
+                          <div>
+                            <p className="text-sm text-foreground font-medium">{r.concepto}</p>
+                            <p className="text-xs text-muted-foreground">{r.fecha ? new Date(r.fecha).toLocaleDateString("es-ES") : ""}</p>
+                          </div>
+                          <span className="text-emerald-400 font-bold text-sm">€{r.importe}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {reinversiones.length > 0 && (
+                    <p className="text-xs text-muted-foreground text-right">
+                      Total reinvertido: <span className="text-emerald-400 font-bold">€{reinversiones.reduce((a,r)=>a+r.importe,0).toFixed(2)}</span>
+                    </p>
+                  )}
                 </CardContent>
               </Card>
 
