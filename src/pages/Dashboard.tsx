@@ -200,6 +200,7 @@ export default function Dashboard() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const [prompt, setPrompt] = useState("");
+  const [paywallOpen, setPaywallOpen] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [apps, setApps] = useState<AppRecord[]>([]);
   const [statusLog, setStatusLog] = useState<string[]>([]);
@@ -214,6 +215,12 @@ export default function Dashboard() {
 
   const handleGenerate = async () => {
     if (!prompt.trim() || generating) return;
+    // Muro de créditos
+    const userCredits = user?.credits ?? 0;
+    if (user?.role !== "admin" && userCredits <= 0) {
+      setPaywallOpen(true);
+      return;
+    }
     setGenerating(true);
     setStatusLog([]);
     const appName = prompt.trim().split(" ").slice(0, 4).join(" ");
@@ -237,6 +244,11 @@ export default function Dashboard() {
       } catch(e) { console.error("[Supabase] save:", e); }
       setApps(prev => [newApp, ...prev]);
       setPrompt("");
+      // Descontar crédito
+      if (user?.role !== "admin") {
+        const nc = Math.max(0, (user?.credits ?? 1) - 1);
+        await _sb.from("users").update({ credits: nc }).eq("id", user?.id || "").catch(console.error);
+      }
       addLog(`✅ "${appName}" lista. Ve a "Mis Apps".`);
     } catch (err) {
       addLog(`❌ ${err instanceof Error ? err.message : "Error"}`);
@@ -266,7 +278,23 @@ export default function Dashboard() {
     { id: "credits",   icon: CreditCard,     label: "Créditos" },
   ];
 
+  // Paywall modal
+  const renderPaywall = () => paywallOpen && (
+    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.85)",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center"}}>
+      <div style={{background:"#111128",border:"1px solid #7c3aed",borderRadius:16,padding:32,maxWidth:380,width:"90%",textAlign:"center",color:"#fff"}}>
+        <div style={{fontSize:48,marginBottom:8}}>⚡</div>
+        <h2 style={{margin:"0 0 8px",fontSize:22,color:"#a78bfa"}}>Sin créditos</h2>
+        <p style={{color:"#888",margin:"0 0 20px",fontSize:14}}>Necesitas créditos para generar apps.<br/>Con el <strong style={{color:"#fff"}}>Plan Pro</strong> tienes créditos ilimitados por solo <strong style={{color:"#a78bfa"}}>€2.99/mes</strong>.</p>
+        <a href="https://www.paypal.com/cgi-bin/webscr?cmd=_xclick-subscriptions&business=joanlazaro83%40gmail.com&item_name=NexusAI+Pro&item_number=pro_monthly&amount=2.99&currency_code=EUR&src=1&sra=1&t3=M&p3=1&no_note=1&return=https://nexusia-three.vercel.app&cancel_return=https://nexusia-three.vercel.app" target="_blank" rel="noopener" style={{display:"block",background:"#003087",color:"#fff",padding:"12px 24px",borderRadius:8,textDecoration:"none",fontWeight:700,fontSize:15,marginBottom:12}} onClick={()=>setPaywallOpen(false)}>💳 Suscribirse con PayPal — €2.99/mes</a>
+        <button onClick={()=>setPaywallOpen(false)} style={{background:"transparent",border:"1px solid #333",color:"#888",padding:"8px 20px",borderRadius:8,cursor:"pointer",fontSize:13}}>Cancelar</button>
+      </div>
+    </div>
+  );
+
+
   return (
+    <>
+    {renderPaywall()}
     <div className="min-h-screen bg-background text-foreground flex">
       {/* Sidebar */}
       <aside className={`fixed md:sticky top-0 left-0 z-40 h-screen w-64 border-r border-border bg-card/50 backdrop-blur-xl flex flex-col transition-transform ${sidebarOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"}`}>
@@ -612,5 +640,6 @@ export default function Dashboard() {
         </div>
       )}
     </div>
+    </>
   );
 }
