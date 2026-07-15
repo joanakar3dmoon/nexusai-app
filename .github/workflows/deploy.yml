@@ -23,6 +23,9 @@ jobs:
         with:
           node-version: 22
       - name: Install and Build
+        env:
+          VITE_GROQ_API_KEY: ${{ secrets.VITE_GROQ_API_KEY }}
+          VITE_OPENROUTER_API_KEY: ${{ secrets.VITE_OPENROUTER_API_KEY }}
         run: |
           npm install
           npm run build
