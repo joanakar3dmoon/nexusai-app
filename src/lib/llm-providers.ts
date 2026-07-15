@@ -1,5 +1,5 @@
 // ============================================================
-// NEXUSAI — MULTI-LLM PROVIDERS (100% GRATUITOS)
+// NEXUSAI — MULTI-LLM PROVIDERS
 // r3dm/Joan — acceso ilimitado con fallback automático
 // ============================================================
 
@@ -15,57 +15,79 @@ export interface LLMResponse {
   tokens_used?: number;
 }
 
-// Keys hardcodeadas — acceso real sin variables de entorno
 const GROQ_KEY = "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";
-const OPENROUTER_KEY = (import.meta.env as Record<string,string>).VITE_OPENROUTER_API_KEY || "";
+const GROQ_URL = "https://api.groq.com/openai/v1/chat/completions";
+const OR_KEY = "";
+const OR_URL = "https://openrouter.ai/api/v1/chat/completions";
 
 const PROVIDERS = [
   {
-    name: "Groq",
-    baseUrl: "https://api.groq.com/openai/v1",
+    name: "Groq — Llama 3.3 70B",
+    url: GROQ_URL,
     key: GROQ_KEY,
     model: "llama-3.3-70b-versatile",
     freeLimit: "14.400 req/día",
+    headers: {} as Record<string, string>,
   },
   {
-    name: "Groq DeepSeek",
-    baseUrl: "https://api.groq.com/openai/v1",
+    name: "Groq — DeepSeek R1",
+    url: GROQ_URL,
     key: GROQ_KEY,
     model: "deepseek-r1-distill-llama-70b",
     freeLimit: "14.400 req/día",
+    headers: {} as Record<string, string>,
   },
   {
-    name: "Groq Gemma",
-    baseUrl: "https://api.groq.com/openai/v1",
+    name: "Groq — Mixtral 8x7B",
+    url: GROQ_URL,
+    key: GROQ_KEY,
+    model: "mixtral-8x7b-32768",
+    freeLimit: "14.400 req/día",
+    headers: {} as Record<string, string>,
+  },
+  {
+    name: "Groq — Gemma 2 9B",
+    url: GROQ_URL,
     key: GROQ_KEY,
     model: "gemma2-9b-it",
     freeLimit: "14.400 req/día",
+    headers: {} as Record<string, string>,
   },
   {
-    name: "OpenRouter",
-    baseUrl: "https://openrouter.ai/api/v1",
-    key: OPENROUTER_KEY,
+    name: "OpenRouter — Llama Free",
+    url: OR_URL,
+    key: OR_KEY,
     model: "meta-llama/llama-3.3-70b-instruct:free",
     freeLimit: "20 req/min",
+    headers: {
+      "HTTP-Referer": "https://joanakar3dmoon.github.io/nexusai-app/",
+      "X-Title": "NexusAI r3dm/Joan",
+    },
   },
-] as const;
+  {
+    name: "OpenRouter — Qwen Free",
+    url: OR_URL,
+    key: OR_KEY,
+    model: "qwen/qwen3-235b-a22b:free",
+    freeLimit: "20 req/min",
+    headers: {
+      "HTTP-Referer": "https://joanakar3dmoon.github.io/nexusai-app/",
+      "X-Title": "NexusAI r3dm/Joan",
+    },
+  },
+];
 
 async function callProvider(
   provider: (typeof PROVIDERS)[number],
   messages: LLMMessage[],
   maxTokens = 4096
 ): Promise<LLMResponse> {
-  if (!provider.key) throw new Error(`Sin key para ${provider.name}`);
-
-  const res = await fetch(`${provider.baseUrl}/chat/completions`, {
+  const res = await fetch(provider.url, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${provider.key}`,
-      ...(provider.name === "OpenRouter" && {
-        "HTTP-Referer": "https://joanakar3dmoon.github.io/nexusai-app/",
-        "X-Title": "NexusAI r3dm/Joan",
-      }),
+      ...provider.headers,
     },
     body: JSON.stringify({
       model: provider.model,
@@ -73,6 +95,7 @@ async function callProvider(
       max_tokens: maxTokens,
       temperature: 0.7,
     }),
+    signal: AbortSignal.timeout(30000),
   });
 
   if (!res.ok) {
@@ -96,8 +119,7 @@ export async function chatWithFallback(
   const errors: string[] = [];
   for (const provider of PROVIDERS) {
     try {
-      const result = await callProvider(provider, messages, maxTokens);
-      return result;
+      return await callProvider(provider, messages, maxTokens);
     } catch (e) {
       errors.push(`${provider.name}: ${e instanceof Error ? e.message : String(e)}`);
     }
