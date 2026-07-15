@@ -53,7 +53,7 @@ type Tab = "dashboard" | "users" | "apps" | "withdrawals" | "stats";
 // Helpers
 // ──────────────────────────────────────────────
 const PAYPAL_EMAIL = "joanlazaro83@gmail.com";
-const ADMIN_EMAIL = "joanakar3dmoon@gmail.com";
+const ADMIN_EMAIL = "joanlazaro83@gmail.com";
 
 function ls<T>(key: string, fallback: T): T {
   try {
@@ -786,3 +786,4 @@ export default function Admin() {
     </div>
   );
 }
+
