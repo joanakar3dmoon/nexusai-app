@@ -18,7 +18,7 @@ async function callGroq(system: string, user: string, tokens = 8192): Promise<st
   const models = ["deepseek-v4-flash", "deepseek-v4-flash", "deepseek-v4-flash"];
   for (const model of models) {
     try {
-      const r = await fetch("https://api.llm7.io/v1/chat/completions", {
+      const r = await fetch("https://api.groq.com/openai/v1/chat/completions", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -125,7 +125,7 @@ function injectAds(html: string): string {
       input.value='';addMsg(q,true);
       addMsg('...pensando',false);
       try{
-        const r=await fetch('https://api.llm7.io/v1/chat/completions',{
+        const r=await fetch('https://api.groq.com/openai/v1/chat/completions',{
           method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer ${GROQ_KEY}'},
           body:JSON.stringify({model: "llama-3.1-8b-instant",messages:[{role:'system',content:'Asistente de app. Responde corto en español.'},{role:'user',content:q}],max_tokens:200}),
           signal:AbortSignal.timeout(15000)
