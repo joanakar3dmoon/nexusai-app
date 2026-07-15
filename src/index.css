@@ -4,47 +4,48 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* ── r3dm/Joan — Paleta rojo y negro ── */
 :root {
-  --background: oklch(0.0 0 270);
-  --foreground: oklch(0.98 0 0);
-  --card: oklch(0.08 0 270);
-  --card-foreground: oklch(0.98 0 0);
-  --popover: oklch(0.08 0 270);
-  --popover-foreground: oklch(0.98 0 0);
-  --primary: oklch(0.65 0.25 300);
+  --background: oklch(0.04 0 0);          /* negro puro */
+  --foreground: oklch(0.95 0 0);          /* blanco suave */
+  --card: oklch(0.08 0.01 15);            /* negro con toque rojizo */
+  --card-foreground: oklch(0.95 0 0);
+  --popover: oklch(0.08 0.01 15);
+  --popover-foreground: oklch(0.95 0 0);
+  --primary: oklch(0.55 0.22 25);         /* rojo principal */
   --primary-foreground: oklch(0.98 0 0);
-  --secondary: oklch(0.15 0.02 270);
-  --secondary-foreground: oklch(0.98 0 0);
-  --muted: oklch(0.15 0.02 270);
-  --muted-foreground: oklch(0.6 0.02 270);
-  --accent: oklch(0.15 0.02 270);
-  --accent-foreground: oklch(0.98 0 0);
-  --destructive: oklch(0.6 0.2 25);
-  --border: oklch(0.2 0.02 270);
-  --input: oklch(0.2 0.02 270);
-  --ring: oklch(0.65 0.25 300);
+  --secondary: oklch(0.12 0.02 15);
+  --secondary-foreground: oklch(0.95 0 0);
+  --muted: oklch(0.13 0.02 15);
+  --muted-foreground: oklch(0.55 0.02 15);
+  --accent: oklch(0.18 0.06 25);          /* rojo oscuro acento */
+  --accent-foreground: oklch(0.95 0 0);
+  --destructive: oklch(0.5 0.22 25);
+  --border: oklch(0.18 0.04 25);          /* borde rojizo sutil */
+  --input: oklch(0.15 0.03 25);
+  --ring: oklch(0.55 0.22 25);            /* foco rojo */
   --radius: 0.625rem;
 }
 
 .dark {
-  --background: oklch(0.0 0 270);
-  --foreground: oklch(0.98 0 0);
-  --card: oklch(0.08 0 270);
-  --card-foreground: oklch(0.98 0 0);
-  --popover: oklch(0.08 0 270);
-  --popover-foreground: oklch(0.98 0 0);
-  --primary: oklch(0.65 0.25 300);
+  --background: oklch(0.04 0 0);
+  --foreground: oklch(0.95 0 0);
+  --card: oklch(0.08 0.01 15);
+  --card-foreground: oklch(0.95 0 0);
+  --popover: oklch(0.08 0.01 15);
+  --popover-foreground: oklch(0.95 0 0);
+  --primary: oklch(0.55 0.22 25);
   --primary-foreground: oklch(0.98 0 0);
-  --secondary: oklch(0.15 0.02 270);
-  --secondary-foreground: oklch(0.98 0 0);
-  --muted: oklch(0.15 0.02 270);
-  --muted-foreground: oklch(0.6 0.02 270);
-  --accent: oklch(0.15 0.02 270);
-  --accent-foreground: oklch(0.98 0 0);
-  --destructive: oklch(0.6 0.2 25);
-  --border: oklch(0.2 0.02 270);
-  --input: oklch(0.2 0.02 270);
-  --ring: oklch(0.65 0.25 300);
+  --secondary: oklch(0.12 0.02 15);
+  --secondary-foreground: oklch(0.95 0 0);
+  --muted: oklch(0.13 0.02 15);
+  --muted-foreground: oklch(0.55 0.02 15);
+  --accent: oklch(0.18 0.06 25);
+  --accent-foreground: oklch(0.95 0 0);
+  --destructive: oklch(0.5 0.22 25);
+  --border: oklch(0.18 0.04 25);
+  --input: oklch(0.15 0.03 25);
+  --ring: oklch(0.55 0.22 25);
 }
 
 @theme inline {
@@ -84,6 +85,15 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
+
+/* Scrollbar roja sutil */
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: #0a0a0a; }
+::-webkit-scrollbar-thumb { background: #8b0000; border-radius: 2px; }
+::-webkit-scrollbar-thumb:hover { background: #cc0000; }
+
+/* Selección en rojo */
+::selection { background: rgba(180,0,0,0.35); color: #fff; }
 
 .text-balance {
   text-wrap: balance;
