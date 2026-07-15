@@ -338,124 +338,212 @@ REGLAS ESTRICTAS:
   return `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>App NexusAI</title><style>*{margin:0;padding:0;box-sizing:border-box}body{background:#0a0a1a;color:#fff;font-family:system-ui,sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;flex-direction:column;gap:16px;padding:20px;text-align:center}.card{background:#1a1a2e;border:1px solid #ffffff15;border-radius:16px;padding:24px;max-width:400px;width:100%}h1{font-size:1.4rem;color:#a78bfa;margin-bottom:8px}p{color:#888;font-size:.9rem;line-height:1.5}.btn{background:linear-gradient(135deg,#7c3aed,#06b6d4);color:#fff;border:none;padding:12px 24px;border-radius:12px;font-size:1rem;cursor:pointer;margin-top:16px;width:100%}</style></head><body><div class="card"><h1>🤖 ${title}</h1><p>App generada con NexusAI. Personaliza este contenido según tus necesidades.</p><button class="btn" onclick="alert('Funcionando!')">Comenzar</button></div></body></html>`;
 }
 
+interface SavedApp { id: string; name: string; html: string; prompt: string; createdAt: string; }
+
 function AdminAppBuilder() {
-  const [prompt, setPrompt] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [prompt, setPrompt]               = useState("");
+  const [loading, setLoading]             = useState(false);
   const [generatedCode, setGeneratedCode] = useState("");
-  const [error, setError] = useState("");
-  const [log, setLog] = useState<string[]>([]);
-  const [preview, setPreview] = useState(false);
+  const [error, setError]                 = useState("");
+  const [log, setLog]                     = useState<string[]>([]);
+  const [preview, setPreview]             = useState(false);
+  const [view, setView]                   = useState<"generate"|"myapps">("generate");
+  const [savedApps, setSavedApps]         = useState<SavedApp[]>([]);
+  const [saved, setSaved]                 = useState(false);
   const iframeRef = useRef<HTMLIFrameElement>(null);
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem("r3dm_saved_apps");
+      if (raw) setSavedApps(JSON.parse(raw));
+    } catch(_) {}
+  }, []);
+
+  const persistApps = (apps: SavedApp[]) => {
+    setSavedApps(apps);
+    localStorage.setItem("r3dm_saved_apps", JSON.stringify(apps));
+  };
 
   const addLog = (msg: string) => setLog(prev => [...prev, msg]);
 
-  const generate = async () => {
-    const text = prompt.trim();
-    if (!text || loading) return;
-    setLoading(true); setError(""); setGeneratedCode(""); setLog([]); setPreview(false);
-    addLog("🔍 Analizando prompt...");
-    addLog("⚡ Conectando con IA (puede tardar ~30s)...");
-    try {
-      const code = await buildAppWithFallback(text);
-      setGeneratedCode(code);
-      addLog("✅ App generada — AdMob + Amazon integrados");
-      setPreview(true);
-      // Guardar en Supabase
-      const appRecord = {
-        id: `app-${Date.now()}`,
-        user_id: "admin-joan",
-        user_email: "joanlazaro83@gmail.com",
-        name: text.slice(0, 60),
-        description: text,
-        html_code: code,
-      };
-      dbSaveApp(appRecord as any).catch(() => {});
-      addLog("💾 App guardada en la base de datos");
-    } catch(e: any) {
-      const msg = e?.message || String(e) || "Error desconocido";
-      setError(`Error: ${msg}`);
-      addLog(`❌ ${msg}`);
-      console.error("[NexusAI] generate error:", e);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Escribir HTML en iframe cuando preview=true
-  const prevCode = useRef("");
-  useEffect(() => {
-    if (!preview || !generatedCode || generatedCode === prevCode.current) return;
-    prevCode.current = generatedCode;
+  const pushPreview = (code: string) => {
     const iframe = iframeRef.current;
     if (!iframe) return;
     try {
       const doc = iframe.contentDocument || iframe.contentWindow?.document;
-      if (doc) { doc.open(); doc.write(generatedCode); doc.close(); return; }
+      if (doc) { doc.open(); doc.write(code); doc.close(); return; }
     } catch(_) {}
-    iframe.srcdoc = generatedCode;
-  }, [preview, generatedCode]);
+    iframe.srcdoc = code;
+  };
 
-  const downloadApp = () => {
-    const blob = new Blob([generatedCode], { type: "text/html" });
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = `${prompt.trim().slice(0,30).replace(/\s+/g,"-")}.html`;
-    a.click();
+  const generate = async () => {
+    const text = prompt.trim();
+    if (!text || loading) return;
+    setLoading(true); setError(""); setGeneratedCode(""); setLog([]); setPreview(false); setSaved(false);
+    addLog("🔍 Analizando descripción...");
+    addLog("⚡ Conectando con IA...");
+    try {
+      const code = await buildAppWithFallback(text);
+      setGeneratedCode(code);
+      addLog("✅ App generada — AdMob + Amazon incluidos");
+      setPreview(true);
+      setTimeout(() => pushPreview(code), 100);
+    } catch(e: any) {
+      const msg = e?.message || "Error desconocido";
+      setError(msg); addLog("❌ " + msg);
+    } finally { setLoading(false); }
+  };
+
+  const saveApp = () => {
+    if (!generatedCode) return;
+    const app: SavedApp = {
+      id: `app_${Date.now()}`,
+      name: prompt.slice(0, 50),
+      html: generatedCode,
+      prompt,
+      createdAt: new Date().toISOString(),
+    };
+    const updated = [app, ...savedApps];
+    persistApps(updated);
+    dbSaveApp({ id: app.id, user_id: "admin-joan", user_email: "joanlazaro83@gmail.com", name: app.name, description: app.prompt, html_code: app.html } as any).catch(() => {});
+    setSaved(true);
+    addLog("💾 ¡Guardada en Mis Apps!");
+  };
+
+  const downloadApp = (code?: string, name?: string) => {
+    const html = code || generatedCode;
+    const fname = (name || prompt.slice(0, 30).replace(/\s+/g, "-") || "app") + ".html";
+    const blob = new Blob([html], { type: "text/html" });
+    const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = fname; a.click();
+  };
+
+  const deleteApp = (id: string) => {
+    if (!confirm("¿Eliminar esta app?")) return;
+    persistApps(savedApps.filter(a => a.id !== id));
+  };
+
+  const loadApp = (app: SavedApp) => {
+    setGeneratedCode(app.html); setPrompt(app.prompt);
+    setPreview(true); setSaved(true); setView("generate");
+    setTimeout(() => pushPreview(app.html), 100);
   };
 
   return (
-    <Card className="border-red-500/20 bg-red-500/5">
-      <CardHeader className="pb-3">
-        <CardTitle className="text-sm font-semibold text-red-300 flex items-center gap-2">
-          <Cpu className="w-4 h-4" /> Generador de Apps con IA
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-3">
-        <textarea value={prompt} onChange={e => setPrompt(e.target.value)}
-          onKeyDown={e => { if (e.key === "Enter" && e.ctrlKey) generate(); }}
-          placeholder="Describe la app... Ej: App de recetas de cocina con buscador y modo oscuro"
-          rows={3} disabled={loading}
-          className="w-full bg-black/30 border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-red-500/40 placeholder:text-white/20 resize-none" />
-        <button onClick={generate} disabled={!prompt.trim() || loading}
-          className="w-full bg-gradient-to-r from-red-600 to-red-800 text-white py-2.5 rounded-xl font-semibold text-sm disabled:opacity-40 cursor-pointer hover:opacity-90 transition-opacity flex items-center justify-center gap-2">
-          {loading ? (<><RefreshCw className="w-4 h-4 animate-spin" /> Generando app...</>) : (<><Cpu className="w-4 h-4" /> Generar App (Ctrl+Enter)</>)}
-        </button>
-        {log.length > 0 && (
-          <div className="bg-black/40 rounded-lg p-3 space-y-1 max-h-28 overflow-y-auto">
-            {log.map((l,i) => (
-              <p key={i} className={`text-xs font-mono ${l.includes("❌") ? "text-red-400" : l.includes("✅") ? "text-emerald-400" : "text-white/50"}`}>{l}</p>
-            ))}
-          </div>
-        )}
-        {error && <p className="text-xs text-red-400 text-center">{error}</p>}
-        {generatedCode && (
-          <div className="space-y-2">
-            <div className="flex gap-2">
-              <button onClick={() => setPreview(v => !v)}
-                className="flex-1 bg-emerald-600/20 border border-emerald-500/30 text-emerald-300 text-xs py-2 rounded-lg hover:bg-emerald-600/30 transition-colors cursor-pointer">
-                {preview ? "🙈 Ocultar preview" : "👁️ Ver preview"}
-              </button>
-              <button onClick={downloadApp}
-                className="flex-1 bg-violet-600/20 border border-violet-500/30 text-violet-300 text-xs py-2 rounded-lg hover:bg-violet-600/30 transition-colors cursor-pointer">
-                💾 Descargar HTML
-              </button>
-              <button onClick={() => navigator.clipboard.writeText(generatedCode)}
-                className="flex-1 bg-white/5 border border-white/10 text-white/60 text-xs py-2 rounded-lg hover:bg-white/10 transition-colors cursor-pointer">
-                📋 Copiar
-              </button>
-            </div>
-            {preview && (
-              <div className="border border-white/10 rounded-xl overflow-hidden" style={{height: 400}}>
-                <iframe ref={iframeRef}
-                  sandbox="allow-scripts allow-same-origin allow-forms"
-                  className="w-full h-full border-0"
-                  title="Preview app" />
+    <div className="space-y-4">
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <h2 className="font-bold text-base flex items-center gap-2">
+          <Cpu className="w-5 h-5 text-red-500"/>
+          <span style={{color:"#ff0000",fontWeight:900,textShadow:"0 0 10px #ff0000aa"}}>r3dm/joan</span>
+          <span className="text-white/40 font-normal text-sm">— Builder Personal</span>
+        </h2>
+        <div className="flex gap-1 bg-white/[0.04] border border-white/10 rounded-xl p-1">
+          <button onClick={() => setView("generate")}
+            className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${view==="generate" ? "bg-violet-600 text-white" : "text-white/40 hover:text-white/70"}`}>
+            ⚡ Crear
+          </button>
+          <button onClick={() => setView("myapps")}
+            className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${view==="myapps" ? "bg-violet-600 text-white" : "text-white/40 hover:text-white/70"}`}>
+            📦 Mis Apps ({savedApps.length})
+          </button>
+        </div>
+      </div>
+
+      {view === "generate" && (
+        <Card className="border-violet-500/20 bg-violet-500/5">
+          <CardContent className="pt-4 space-y-3">
+            <textarea value={prompt} onChange={e => setPrompt(e.target.value)}
+              onKeyDown={e => { if (e.key === "Enter" && e.ctrlKey) generate(); }}
+              placeholder="Describe tu app... Ej: App de música electrónica con reproductor, lista de artistas y links a Amazon"
+              rows={3} disabled={loading}
+              className="w-full bg-black/30 border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-violet-500/50 placeholder-white/20 resize-none"/>
+            <button onClick={generate} disabled={!prompt.trim() || loading}
+              className="w-full bg-gradient-to-r from-red-600 via-violet-600 to-cyan-600 text-white py-3 rounded-xl font-bold text-sm hover:opacity-90 disabled:opacity-40 transition-all flex items-center justify-center gap-2 cursor-pointer">
+              {loading ? <><RefreshCw className="w-4 h-4 animate-spin"/> Generando (30-60s)...</> : <><Cpu className="w-4 h-4"/> Generar App con IA</>}
+            </button>
+            {log.length > 0 && (
+              <div className="bg-black/40 rounded-lg p-3 space-y-1 max-h-24 overflow-y-auto">
+                {log.map((l, i) => (
+                  <p key={i} className={`text-xs font-mono ${l.includes("❌") ? "text-red-400" : l.includes("✅") || l.includes("💾") ? "text-emerald-400" : "text-white/50"}`}>{l}</p>
+                ))}
               </div>
             )}
-          </div>
-        )}
-      </CardContent>
-    </Card>
+            {error && <p className="text-xs text-red-400 text-center bg-red-500/10 border border-red-500/20 rounded-lg p-2">{error}</p>}
+            {generatedCode && (
+              <div className="space-y-2">
+                {!saved ? (
+                  <button onClick={saveApp}
+                    className="w-full bg-emerald-600 hover:bg-emerald-500 text-white py-3 rounded-xl font-bold text-sm transition-all cursor-pointer flex items-center justify-center gap-2">
+                    💾 Guardar en Mis Apps
+                  </button>
+                ) : (
+                  <div className="w-full bg-emerald-500/20 border border-emerald-500/30 text-emerald-300 py-2.5 rounded-xl text-sm text-center font-semibold">
+                    ✅ Guardada en Mis Apps
+                  </div>
+                )}
+                <div className="flex gap-2">
+                  <button onClick={() => { setPreview(v => !v); if (!preview) setTimeout(() => pushPreview(generatedCode), 100); }}
+                    className="flex-1 bg-cyan-600/20 border border-cyan-500/30 text-cyan-300 text-xs py-2 rounded-lg hover:bg-cyan-600/30 cursor-pointer">
+                    {preview ? "🙈 Ocultar" : "👁 Ver Preview"}
+                  </button>
+                  <button onClick={() => downloadApp()}
+                    className="flex-1 bg-violet-600/20 border border-violet-500/30 text-violet-300 text-xs py-2 rounded-lg hover:bg-violet-600/30 cursor-pointer">
+                    ⬇ Descargar HTML
+                  </button>
+                  <button onClick={() => navigator.clipboard.writeText(generatedCode)}
+                    className="flex-1 bg-white/5 border border-white/10 text-white/50 text-xs py-2 rounded-lg hover:bg-white/10 cursor-pointer">
+                    📋 Copiar
+                  </button>
+                </div>
+                {preview && (
+                  <div className="border border-white/10 rounded-xl overflow-hidden" style={{height: 420}}>
+                    <iframe ref={iframeRef} sandbox="allow-scripts allow-same-origin allow-forms"
+                      className="w-full h-full border-0" title="Preview app"/>
+                  </div>
+                )}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {view === "myapps" && (
+        <Card className="border-orange-500/20 bg-orange-500/5">
+          <CardContent className="pt-4">
+            {savedApps.length === 0 ? (
+              <div className="text-center py-12 text-white/30">
+                <Bot className="w-12 h-12 mx-auto mb-3 opacity-20"/>
+                <p className="text-sm">No tienes apps guardadas aún</p>
+                <p className="text-xs mt-1">Genera una y pulsa "Guardar en Mis Apps"</p>
+                <button onClick={() => setView("generate")}
+                  className="mt-4 bg-violet-600/20 border border-violet-500/30 text-violet-300 text-xs px-4 py-2 rounded-lg cursor-pointer hover:bg-violet-600/30">
+                  ⚡ Crear mi primera app
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {savedApps.map(app => (
+                  <div key={app.id} className="bg-white/[0.03] border border-white/10 rounded-xl p-3 flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-600 to-cyan-500 flex items-center justify-center text-lg shrink-0">📱</div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-sm truncate">{app.name}</p>
+                      <p className="text-xs text-white/30">{new Date(app.createdAt).toLocaleDateString("es-ES")}</p>
+                    </div>
+                    <div className="flex gap-1">
+                      <button onClick={() => loadApp(app)} title="Cargar"
+                        className="bg-violet-600/20 border border-violet-500/30 text-violet-300 text-xs px-2 py-1.5 rounded-lg hover:bg-violet-600/30 cursor-pointer">✏️</button>
+                      <button onClick={() => downloadApp(app.html, app.name)} title="Descargar"
+                        className="bg-emerald-600/20 border border-emerald-500/30 text-emerald-300 text-xs px-2 py-1.5 rounded-lg hover:bg-emerald-600/30 cursor-pointer">⬇</button>
+                      <button onClick={() => deleteApp(app.id)} title="Eliminar"
+                        className="bg-red-600/20 border border-red-500/30 text-red-400 text-xs px-2 py-1.5 rounded-lg hover:bg-red-600/30 cursor-pointer">🗑</button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+    </div>
   );
 }
 
