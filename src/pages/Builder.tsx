@@ -6,7 +6,7 @@ import { dbSaveApp } from "@/lib/supabase";
 import { useNavigate } from "react-router-dom";
 
 // ── Credenciales ─────────────────────────────────────────────
-const GROQ_KEY = "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";
+const GROQ_KEY = "free";
 const ADMOB_PUB = "ca-pub-4903263409458961";
 const ADMOB_BAN = "8825147276";
 const ADMOB_INT = "4622591073";
@@ -15,10 +15,10 @@ const AMZ_TAG   = "r3dm01-21";
 // ── Llamada a Groq ───────────────────────────────────────────
 async function callGroq(system: string, user: string, tokens = 8192): Promise<string> {
   // llama-4-scout rápido primero, luego llama-3.3-70b, luego llama-3.1-8b
-  const models = ["meta-llama/llama-4-scout-17b-16e-instruct", "llama-3.3-70b-versatile", "llama-3.1-8b-instant"];
+  const models = ["codestral-latest", "codestral-latest", "codestral-latest"];
   for (const model of models) {
     try {
-      const r = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      const r = await fetch("https://api.llm7.io/v1/chat/completions", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -125,9 +125,9 @@ function injectAds(html: string): string {
       input.value='';addMsg(q,true);
       addMsg('...pensando',false);
       try{
-        const r=await fetch('https://api.groq.com/openai/v1/chat/completions',{
+        const r=await fetch('https://api.llm7.io/v1/chat/completions',{
           method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer ${GROQ_KEY}'},
-          body:JSON.stringify({model:'llama-3.1-8b-instant',messages:[{role:'system',content:'Asistente de app. Responde corto en español.'},{role:'user',content:q}],max_tokens:200}),
+          body:JSON.stringify({model:'codestral-latest',messages:[{role:'system',content:'Asistente de app. Responde corto en español.'},{role:'user',content:q}],max_tokens:200}),
           signal:AbortSignal.timeout(15000)
         });
         const d=await r.json();
