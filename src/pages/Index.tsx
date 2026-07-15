@@ -227,10 +227,10 @@ export default function Index() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center gap-3 cursor-pointer" onClick={() => navigate("/")}>
-              <img src="./nexusai-logo.png" alt="NexusAI" className="w-10 h-10 rounded-full object-cover border-2 border-red-500/50 shadow-lg shadow-red-500/20" />
+              <img src="./icon-192.png" alt="NexusAI" className="w-11 h-11 rounded-xl object-cover border-2 border-red-500/70 shadow-lg shadow-red-500/30" />
               <div className="flex flex-col leading-none">
-                <span className="font-black text-lg tracking-widest text-red-500" style={{ fontFamily: "'Arial Black',Impact,sans-serif", letterSpacing: "0.12em" }}>r3dm/joan</span>
-                <span className="text-[10px] text-white/40 tracking-widest font-mono -mt-0.5">NexusAI Studio</span>
+                <span className="font-black text-xl tracking-widest text-red-500" style={{ fontFamily: "'Arial Black',Impact,sans-serif", letterSpacing: "0.12em", textShadow: "0 0 14px #ff000099" }}>r3dm/joan</span>
+                <span className="text-[11px] text-violet-400 tracking-widest font-mono -mt-0.5 font-semibold">NexusAI Studio</span>
               </div>
             </div>
             <nav className="hidden md:flex items-center gap-6 text-sm text-white/60">
@@ -503,7 +503,7 @@ export default function Index() {
         </div>
         <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-6">
           <div className="flex items-center gap-3">
-            <img src="./nexusai-logo.png" alt="NexusAI" className="w-7 h-7 rounded-full border border-red-500/30" />
+            <img src="./icon-192.png" alt="NexusAI" className="w-8 h-8 rounded-lg border border-red-500/40 shadow-sm shadow-red-500/20" />
             <span className="font-black text-red-500 tracking-widest text-sm" style={{ fontFamily: "'Arial Black',Impact,sans-serif" }}>r3dm/joan</span>
             <span className="text-white/20 text-sm">· NexusAI Studio</span>
           </div>
