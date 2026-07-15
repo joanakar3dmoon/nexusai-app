@@ -165,14 +165,14 @@ function StatCard({
 // Main Component
 // ──────────────────────────────────────────────
 // ── Constantes compartidas para los componentes del Creator ──
-const GROQ_KEY = (import.meta.env.VITE_GROQ_API_KEY as string) || "free";
-const GROQ_URL = GROQ_KEY === "free" ? "https://api.llm7.io/v1/chat/completions" : "https://api.groq.com/openai/v1/chat/completions";
+const GROQ_KEY = (import.meta.env.VITE_GROQ_API_KEY as string) || "";
+const GROQ_URL = "https://api.groq.com/openai/v1/chat/completions";
 
 const PLAY_MODELS = [
-  { id: "llama", label: "Codestral IA", color: "text-violet-300 border-violet-500/30 bg-violet-500/10", model: "codestral-latest" },
-  { id: "deepseek", label: "Codestral Pro", color: "text-emerald-300 border-emerald-500/30 bg-emerald-500/10", model: "codestral-latest" },
-  { id: "mixtral", label: "Codestral Fast", color: "text-cyan-300 border-cyan-500/30 bg-cyan-500/10", model: "codestral-latest" },
-  { id: "gemma", label: "Codestral Max", color: "text-pink-300 border-pink-500/30 bg-pink-500/10", model: "codestral-latest" },
+  { id: "llama", label: "Llama 3.3 70B", color: "text-violet-300 border-violet-500/30 bg-violet-500/10", model: "llama-3.3-70b-versatile" },
+  { id: "deepseek", label: "Llama 3 70B", color: "text-emerald-300 border-emerald-500/30 bg-emerald-500/10", model: "llama3-70b-8192" },
+  { id: "mixtral", label: "Mixtral 8x7B", color: "text-cyan-300 border-cyan-500/30 bg-cyan-500/10", model: "mixtral-8x7b-32768" },
+  { id: "gemma", label: "Gemma 2 9B", color: "text-pink-300 border-pink-500/30 bg-pink-500/10", model: "gemma2-9b-it" },
 ];
 
 type ChatMsg = { role: "user" | "assistant"; content: string; model?: string };
@@ -805,11 +805,11 @@ INSTRUCCIONES CLAVE:
 - Prioriza: publicidad en redes para música, equipamiento (cables, interfaces, etc.), plataformas de distribución musical (DistroKid, etc.), hosting/dominio, herramientas de creación.
 - Si no menciona cantidad, haz preguntas para entender cuánto tiene disponible.
 - Habla en español, tono directo y práctico. Máximo 5-6 líneas.`;
-      const res = await fetch("https://api.llm7.io/v1/chat/completions", {
+      const res = await fetch(GROQ_URL, {
         method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: "Bearer free" },
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${GROQ_KEY}` },
         body: JSON.stringify({
-          model: "codestral-latest",
+          model: "llama-3.3-70b-versatile",
           messages: [
             { role: "system", content: system },
             ...newHistory.map(m => ({ role: m.role, content: m.text })),
@@ -1630,7 +1630,6 @@ INSTRUCCIONES CLAVE:
     </div>
   );
 }
-
 
 
 
