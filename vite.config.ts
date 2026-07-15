@@ -4,8 +4,8 @@ import tailwindcss from "@tailwindcss/vite";
 import { existsSync } from "fs";
 import { resolve } from "path";
 
-// Si existe la carpeta android/ estamos en un build de Capacitor → rutas relativas
-// Si no, es GitHub Pages → /nexusai-app/
+// Si existe android/ en el repo → build de Capacitor → rutas relativas "./"
+// Si no → GitHub Pages → "/nexusai-app/"
 const isCapacitor =
   process.env.BUILD_TARGET === "capacitor" ||
   existsSync(resolve(__dirname, "android"));
@@ -13,6 +13,11 @@ const isCapacitor =
 export default defineConfig({
   plugins: [react(), tailwindcss()],
   base: isCapacitor ? "./" : "/nexusai-app/",
+  resolve: {
+    alias: {
+      "@": resolve(__dirname, "src"),
+    },
+  },
   build: {
     rollupOptions: {
       output: {
