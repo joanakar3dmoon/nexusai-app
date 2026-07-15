@@ -163,6 +163,197 @@ function StatCard({
 // ──────────────────────────────────────────────
 // Main Component
 // ──────────────────────────────────────────────
+// ── Constantes compartidas para los componentes del Creator ──
+const GROQ_KEY = "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";
+const GROQ_URL = "https://api.groq.com/openai/v1/chat/completions";
+
+const PLAY_MODELS = [
+  { id: "llama", label: "Llama 3.3 70B", color: "text-violet-300 border-violet-500/30 bg-violet-500/10", model: "llama-3.3-70b-versatile" },
+  { id: "deepseek", label: "DeepSeek R1", color: "text-emerald-300 border-emerald-500/30 bg-emerald-500/10", model: "deepseek-r1-distill-llama-70b" },
+  { id: "mixtral", label: "Mixtral 8x7B", color: "text-cyan-300 border-cyan-500/30 bg-cyan-500/10", model: "mixtral-8x7b-32768" },
+  { id: "gemma", label: "Gemma 2 9B", color: "text-pink-300 border-pink-500/30 bg-pink-500/10", model: "gemma2-9b-it" },
+];
+
+type ChatMsg = { role: "user" | "assistant"; content: string; model?: string };
+
+// ── Playground IA incrustado en Admin ──────────────────────
+function AdminPlayground() {
+  const [selectedModel, setSelectedModel] = React.useState(0);
+  const [messages, setMessages] = React.useState<ChatMsg[]>([]);
+  const [input, setInput] = React.useState("");
+  const [loading, setLoading] = React.useState(false);
+  const [error, setError] = React.useState("");
+  const msgsRef = React.useRef<HTMLDivElement>(null);
+
+  const send = async () => {
+    const text = input.trim();
+    if (!text || loading) return;
+    setInput(""); setError("");
+    const newMsgs: ChatMsg[] = [...messages, { role: "user", content: text }];
+    setMessages(newMsgs);
+    setLoading(true);
+    setTimeout(() => { if (msgsRef.current) msgsRef.current.scrollTop = msgsRef.current.scrollHeight; }, 50);
+    const pm = PLAY_MODELS[selectedModel];
+    try {
+      const res = await fetch(GROQ_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${GROQ_KEY}` },
+        body: JSON.stringify({ model: pm.model, messages: newMsgs.map(m => ({ role: m.role, content: m.content })), max_tokens: 2048, temperature: 0.7 }),
+        signal: AbortSignal.timeout(30000),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      let reply = data.choices?.[0]?.message?.content ?? "";
+      reply = reply.replace(/<think>[\s\S]*?<\/think>/g, "").trim();
+      if (!reply) throw new Error("Respuesta vacía");
+      setMessages([...newMsgs, { role: "assistant", content: reply, model: pm.label }]);
+    } catch {
+      setError("Error de conexión. Intenta de nuevo.");
+      setMessages(newMsgs);
+    } finally {
+      setLoading(false);
+      setTimeout(() => { if (msgsRef.current) msgsRef.current.scrollTop = msgsRef.current.scrollHeight; }, 50);
+    }
+  };
+
+  return (
+    <Card className="border-violet-500/20 bg-violet-500/5">
+      <CardHeader className="pb-3">
+        <CardTitle className="text-sm font-semibold text-violet-300 flex items-center gap-2">
+          <Bot className="w-4 h-4" /> Playground IA — Chat en tiempo real
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {/* Selector modelo */}
+        <div className="flex gap-2 flex-wrap">
+          {PLAY_MODELS.map((m, i) => (
+            <button key={m.id} onClick={() => setSelectedModel(i)}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all cursor-pointer ${m.color} ${selectedModel === i ? "ring-2 ring-white/20" : "opacity-50 hover:opacity-80"}`}>
+              <Cpu className="w-3 h-3 inline mr-1" />{m.label}
+            </button>
+          ))}
+        </div>
+        {/* Mensajes */}
+        <div ref={msgsRef} className="bg-black/30 rounded-xl border border-white/5 p-3 min-h-[180px] max-h-[300px] overflow-y-auto space-y-3">
+          {messages.length === 0 && (
+            <div className="text-center text-white/20 text-sm py-6">
+              <Bot className="w-7 h-7 mx-auto mb-2 opacity-30" />
+              Escribe algo — IA real, sin trucos
+            </div>
+          )}
+          {messages.map((msg, i) => (
+            <div key={i} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
+              <div className={`max-w-[85%] rounded-xl px-3 py-2 text-sm leading-relaxed ${msg.role === "user" ? "bg-violet-600/30 text-white border border-violet-500/20" : "bg-white/[0.04] text-white/80 border border-white/5"}`}>
+                {msg.role === "assistant" && <p className="text-[10px] text-white/30 font-mono mb-1">{msg.model}</p>}
+                <p className="whitespace-pre-wrap">{msg.content}</p>
+              </div>
+            </div>
+          ))}
+          {loading && (
+            <div className="flex justify-start">
+              <div className="bg-white/[0.04] border border-white/5 rounded-xl px-3 py-2 flex items-center gap-1.5">
+                {[0,150,300].map(d => <span key={d} className="w-1.5 h-1.5 bg-violet-400 rounded-full animate-bounce" style={{ animationDelay: `${d}ms` }} />)}
+              </div>
+            </div>
+          )}
+          {error && <p className="text-xs text-red-400 text-center">{error}</p>}
+        </div>
+        {/* Input */}
+        <div className="flex gap-2">
+          <input value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => e.key === "Enter" && !e.shiftKey && send()}
+            placeholder="Pregunta a la IA..." disabled={loading}
+            className="flex-1 bg-white/[0.04] border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-violet-500/40 placeholder:text-white/20" />
+          <button onClick={send} disabled={!input.trim() || loading}
+            className="bg-gradient-to-r from-violet-600 to-cyan-600 text-white px-4 py-2 rounded-xl font-semibold text-sm disabled:opacity-40 cursor-pointer hover:opacity-90 transition-opacity">→</button>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+// ── Generador de Apps incrustado en Admin ──────────────────
+function AdminAppBuilder() {
+  const [prompt, setPrompt] = React.useState("");
+  const [loading, setLoading] = React.useState(false);
+  const [generatedCode, setGeneratedCode] = React.useState("");
+  const [error, setError] = React.useState("");
+
+  const generate = async () => {
+    const text = prompt.trim();
+    if (!text || loading) return;
+    setLoading(true); setError(""); setGeneratedCode("");
+    try {
+      const res = await fetch(GROQ_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${GROQ_KEY}` },
+        body: JSON.stringify({
+          model: "llama-3.3-70b-versatile",
+          messages: [
+            { role: "system", content: "Eres NexusAI Builder. Genera una app web completa en HTML/CSS/JS. Devuelve SOLO el código HTML, sin explicaciones ni markdown. Diseño dark, moderno, mobile-first." },
+            { role: "user", content: `Crea esta aplicación: ${text}` },
+          ],
+          max_tokens: 8192, temperature: 0.7,
+        }),
+        signal: AbortSignal.timeout(60000),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      const code = data.choices?.[0]?.message?.content ?? "";
+      setGeneratedCode(code);
+    } catch {
+      setError("Error generando la app. Intenta de nuevo.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const copyCode = () => { navigator.clipboard.writeText(generatedCode); };
+  const previewApp = () => {
+    const blob = new Blob([generatedCode], { type: "text/html" });
+    const url = URL.createObjectURL(blob);
+    window.open(url, "_blank");
+  };
+
+  return (
+    <Card className="border-red-500/20 bg-red-500/5">
+      <CardHeader className="pb-3">
+        <CardTitle className="text-sm font-semibold text-red-300 flex items-center gap-2">
+          <Cpu className="w-4 h-4" /> Generador de Apps con IA
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <textarea value={prompt} onChange={e => setPrompt(e.target.value)}
+          placeholder="Describe la app que quieres crear... Ej: 'Una app de lista de tareas con modo oscuro y animaciones'"
+          rows={3} disabled={loading}
+          className="w-full bg-black/30 border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-red-500/40 placeholder:text-white/20 resize-none" />
+        <button onClick={generate} disabled={!prompt.trim() || loading}
+          className="w-full bg-gradient-to-r from-red-600 to-red-800 text-white py-2.5 rounded-xl font-semibold text-sm disabled:opacity-40 cursor-pointer hover:opacity-90 transition-opacity flex items-center justify-center gap-2">
+          {loading ? (<><RefreshCw className="w-4 h-4 animate-spin" /> Generando app...</>) : (<><Cpu className="w-4 h-4" /> Generar App</>)}
+        </button>
+        {error && <p className="text-xs text-red-400 text-center">{error}</p>}
+        {generatedCode && (
+          <div className="space-y-2">
+            <div className="flex gap-2">
+              <button onClick={previewApp} className="flex-1 bg-emerald-600/20 border border-emerald-500/30 text-emerald-300 text-xs py-2 rounded-lg hover:bg-emerald-600/30 transition-colors cursor-pointer">
+                👁️ Vista previa
+              </button>
+              <button onClick={copyCode} className="flex-1 bg-white/5 border border-white/10 text-white/60 text-xs py-2 rounded-lg hover:bg-white/10 transition-colors cursor-pointer">
+                📋 Copiar código
+              </button>
+            </div>
+            <pre className="bg-black/40 border border-white/5 rounded-xl p-3 text-xs text-white/50 overflow-auto max-h-[200px] font-mono">
+              {generatedCode.slice(0, 500)}...
+            </pre>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+// ── Importar React para los componentes standalone ──────────
+import React from "react";
+
 export default function Admin() {
   const { user, isAdmin, signOut } = useAuth();
   const navigate = useNavigate();
@@ -963,35 +1154,18 @@ Habla en español, directo y práctico. Máximo 3-4 párrafos por respuesta.`;
             </motion.div>
           )}
 
-          {/* TAB: Crear App */}
+          {/* TAB: Crear App — Playground + Generador incrustado */}
           {activeTab === "creator" && (
-            <motion.div key="creator" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-5">
+            <motion.div key="creator" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
               <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
-                <Cpu className="w-5 h-5 text-red-400" /> Generador de Apps — r3dm/Joan
+                <Cpu className="w-5 h-5 text-red-400" /> Centro de Creación — r3dm/Joan
               </h2>
-              <p className="text-sm text-muted-foreground">Acceso exclusivo de administrador. Crea tus apps directamente desde aquí.</p>
-              <div className="flex flex-col sm:flex-row gap-3">
-                <Button
-                  className="flex-1 bg-red-600 hover:bg-red-700 text-white font-semibold"
-                  onClick={() => navigate("/dashboard")}
-                >
-                  <Cpu className="w-4 h-4 mr-2" /> Ir al Generador de Apps
-                </Button>
-                <Button
-                  variant="outline"
-                  className="flex-1 border-red-500/40 text-red-400 hover:bg-red-500/10"
-                  onClick={() => navigate("/builder")}
-                >
-                  <ChevronRight className="w-4 h-4 mr-2" /> Builder Avanzado
-                </Button>
-              </div>
-              <Card className="border-red-500/20 bg-red-500/5">
-                <CardContent className="pt-4 text-sm text-muted-foreground space-y-2">
-                  <p>💡 <strong className="text-foreground">Consejo:</strong> Desde el Dashboard puedes generar apps completas con IA escribiendo en texto.</p>
-                  <p>🔧 El Builder avanzado te da control total sobre el código generado.</p>
-                  <p>📲 Las apps generadas se pueden exportar como APK o PWA instalable.</p>
-                </CardContent>
-              </Card>
+
+              {/* Playground IA incrustado */}
+              <AdminPlayground />
+
+              {/* Generador de Apps incrustado */}
+              <AdminAppBuilder />
             </motion.div>
           )}
 
@@ -1000,6 +1174,7 @@ Habla en español, directo y práctico. Máximo 3-4 párrafos por respuesta.`;
     </div>
   );
 }
+
 
 
 
