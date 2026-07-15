@@ -53,9 +53,9 @@ async function saveApps(apps: AppRecord[]) {
 
 // ---- Proveedores LLM (solo para el generador) ----
 const LLM_PROVIDERS = [
-  { id: "groq",     url: "https://api.llm7.io/v1/chat/completions", model: "deepseek-v4-flash", keyEnv: "free" },
-  { id: "deepseek", url: "https://api.llm7.io/v1/chat/completions", model: "deepseek-v4-flash", keyEnv: "free" },
-  { id: "qwen",     url: "https://api.llm7.io/v1/chat/completions", model: "deepseek-v4-flash", keyEnv: "free" },
+  { id: "groq",     url: "https://api.llm7.io/v1/chat/completions", model: "llama-3.1-8b-instant", keyEnv: "free" },
+  { id: "deepseek", url: "https://api.llm7.io/v1/chat/completions", model: "llama-3.1-8b-instant", keyEnv: "free" },
+  { id: "qwen",     url: "https://api.llm7.io/v1/chat/completions", model: "llama-3.1-8b-instant", keyEnv: "free" },
   { id: "mixtral",  url: "https://api.llm7.io/v1/chat/completions", model: "deepseek-v4-flash", keyEnv: "free" },
   { id: "freellm",  url: "https://api.llm7.io/v1/chat/completions",     model: "deepseek-v4-flash",              keyEnv: "" },
 ];
