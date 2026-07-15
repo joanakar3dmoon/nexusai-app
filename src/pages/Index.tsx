@@ -139,7 +139,7 @@ function LandingPlayground({ navigate }: { navigate: (p: string) => void }) {
             <div className="w-2.5 h-2.5 rounded-full bg-red-500/60" />
             <div className="w-2.5 h-2.5 rounded-full bg-yellow-500/60" />
             <div className="w-2.5 h-2.5 rounded-full bg-green-500/60" />
-            <span className="ml-3 text-xs text-red-400 font-mono font-bold tracking-wider">r3dm/Joan — NexusAI</span>
+            <span className="ml-3 text-xs text-red-400 font-mono font-bold tracking-wider">r3dm/joan — NexusAI</span>
             <div className="ml-auto flex items-center gap-1.5">
               <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
               <span className="text-[10px] text-emerald-400 font-mono font-bold">LIVE</span>
@@ -229,7 +229,7 @@ export default function Index() {
             <div className="flex items-center gap-3 cursor-pointer" onClick={() => navigate("/")}>
               <img src="./nexusai-logo.png" alt="NexusAI" className="w-10 h-10 rounded-full object-cover border-2 border-red-500/50 shadow-lg shadow-red-500/20" />
               <div className="flex flex-col leading-none">
-                <span className="font-black text-lg tracking-widest text-red-500" style={{ fontFamily: "'Arial Black',Impact,sans-serif", letterSpacing: "0.12em" }}>r3dm/Joan</span>
+                <span className="font-black text-lg tracking-widest text-red-500" style={{ fontFamily: "'Arial Black',Impact,sans-serif", letterSpacing: "0.12em" }}>r3dm/joan</span>
                 <span className="text-[10px] text-white/40 tracking-widest font-mono -mt-0.5">NexusAI Studio</span>
               </div>
             </div>
@@ -504,11 +504,11 @@ export default function Index() {
         <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-6">
           <div className="flex items-center gap-3">
             <img src="./nexusai-logo.png" alt="NexusAI" className="w-7 h-7 rounded-full border border-red-500/30" />
-            <span className="font-black text-red-500 tracking-widest text-sm" style={{ fontFamily: "'Arial Black',Impact,sans-serif" }}>r3dm/Joan</span>
+            <span className="font-black text-red-500 tracking-widest text-sm" style={{ fontFamily: "'Arial Black',Impact,sans-serif" }}>r3dm/joan</span>
             <span className="text-white/20 text-sm">· NexusAI Studio</span>
           </div>
           <div className="flex flex-wrap justify-center gap-x-6 gap-y-2 text-sm text-white/30">
-            <span>© {new Date().getFullYear()} r3dm/Joan</span>
+            <span>© {new Date().getFullYear()} r3dm/joan</span>
             <a href="#privacy" className="hover:text-white/60 transition-colors">Privacidad</a>
             <a href="#terms" className="hover:text-white/60 transition-colors">Términos</a>
             <a href="mailto:joanlazaro83@gmail.com" className="hover:text-white/60 transition-colors">Contacto</a>
