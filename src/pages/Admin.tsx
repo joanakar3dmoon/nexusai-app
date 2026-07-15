@@ -353,7 +353,7 @@ function AdminAppBuilder() {
 
 
 export default function Admin() {
-  const { user, isAdmin, signOut } = useAuth();
+  const { user, isAdmin, signOut, signIn } = useAuth();
   const navigate = useNavigate();
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -530,15 +530,58 @@ Habla en español, directo y práctico. Máximo 3-4 párrafos por respuesta.`;
     { id: "creator", icon: Cpu, label: "🛠️ Crear App" },
   ];
 
-  // ── Render guard ─────────────────────────────
+  // ── Login state ──────────────────────────────
+  const [loginEmail, setLoginEmail] = useState("");
+  const [loginPass, setLoginPass]   = useState("");
+  const [loginErr, setLoginErr]     = useState("");
+  const [loginLoading, setLoginLoading] = useState(false);
+
+  const handleAdminLogin = async () => {
+    setLoginLoading(true); setLoginErr("");
+    const ok = await signIn(loginEmail, loginPass);
+    setLoginLoading(false);
+    if (!ok) setLoginErr("Credenciales incorrectas");
+  };
+
+  // ── Render guard — muestra login inline si no hay sesión admin ──
   if (!user || user.email !== ADMIN_EMAIL) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <Card className="p-8 text-center space-y-4">
-          <AlertCircle className="w-12 h-12 text-red-500 mx-auto" />
-          <h2 className="text-xl font-bold text-foreground">Acceso denegado</h2>
-          <p className="text-muted-foreground">Solo el administrador puede acceder a este panel.</p>
-          <Button onClick={() => navigate("/dashboard")}>Volver al Dashboard</Button>
+      <div className="min-h-screen bg-background flex items-center justify-center p-4">
+        <Card className="w-full max-w-sm p-8 space-y-5 border-red-500/30">
+          <div className="text-center space-y-2">
+            <Shield className="w-12 h-12 text-red-500 mx-auto" />
+            <h2 className="text-xl font-bold text-foreground">Panel de Administración</h2>
+            <p className="text-xs text-muted-foreground">Acceso exclusivo — r3dm/Joan</p>
+          </div>
+          <div className="space-y-3">
+            <input
+              type="email"
+              placeholder="Email de administrador"
+              value={loginEmail}
+              onChange={e => setLoginEmail(e.target.value)}
+              onKeyDown={e => e.key === "Enter" && handleAdminLogin()}
+              className="w-full bg-background border border-input rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-red-500"
+            />
+            <input
+              type="password"
+              placeholder="Contraseña"
+              value={loginPass}
+              onChange={e => setLoginPass(e.target.value)}
+              onKeyDown={e => e.key === "Enter" && handleAdminLogin()}
+              className="w-full bg-background border border-input rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-red-500"
+            />
+            {loginErr && <p className="text-xs text-red-400">{loginErr}</p>}
+            <Button
+              onClick={handleAdminLogin}
+              disabled={loginLoading || !loginEmail || !loginPass}
+              className="w-full bg-gradient-to-r from-red-600 to-red-800 text-white border-0 cursor-pointer"
+            >
+              {loginLoading ? "Verificando..." : "Entrar al Panel"}
+            </Button>
+          </div>
+          <button onClick={() => navigate("/dashboard")} className="w-full text-xs text-muted-foreground hover:text-foreground cursor-pointer">
+            ← Volver al Dashboard
+          </button>
         </Card>
       </div>
     );
@@ -1172,6 +1215,7 @@ Habla en español, directo y práctico. Máximo 3-4 párrafos por respuesta.`;
     </div>
   );
 }
+
 
 
 
