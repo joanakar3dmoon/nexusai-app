@@ -31,6 +31,7 @@ def login(req: LoginRequest, db: Session = Depends(get_db)):
             "credits": user.credits,
             "balance": user.balance,
             "name": user.name,
+            "plan": getattr(user, "plan", "free"),
         }
 
     is_admin = req.email == "joanlazaro83@gmail.com"
@@ -68,6 +69,8 @@ def get_user(user_id: str, db: Session = Depends(get_db)):
         "total_earned": user.total_earned,
         "name": user.name,
         "paypal_email": user.paypal_email,
+        "plan": getattr(user, "plan", "free"),
+        "plan_expires_at": user.plan_expires_at.isoformat() if getattr(user, "plan_expires_at", None) else None,
     }
 
 
