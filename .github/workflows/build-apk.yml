@@ -8,6 +8,7 @@ on:
       - 'src/**'
       - 'package.json'
       - 'capacitor.config.ts'
+      - 'vite.config.ts'
 
 permissions:
   contents: write
@@ -34,60 +35,49 @@ jobs:
       - name: Install dependencies
         run: npm install
 
-      - name: Build Vite
-        run: npm run build
+      - name: Build Vite modo Capacitor
+        run: BUILD_TARGET=capacitor npm run build
 
-      - name: Init Capacitor Android
-        run: npx cap add android || true
+      - name: Add Android platform
+        run: npx cap add android
 
-      - name: Inject AdMob App ID into AndroidManifest.xml
+      - name: Fix Android SDK versions
+        run: |
+          sed -i 's/compileSdk = [0-9]*/compileSdk = 34/' android/app/build.gradle || true
+          sed -i 's/targetSdk = [0-9]*/targetSdk = 34/' android/app/build.gradle || true
+
+      - name: Inject AdMob App ID
         run: |
           MANIFEST="android/app/src/main/AndroidManifest.xml"
-          if grep -q "com.google.android.gms.ads.APPLICATION_ID" "$MANIFEST"; then
-            sed -i 's|<meta-data android:name="com.google.android.gms.ads.APPLICATION_ID".*/>|<meta-data android:name="com.google.android.gms.ads.APPLICATION_ID" android:value="ca-app-pub-4903263409458961~5751005760"/>|' "$MANIFEST"
+          ADMOB_ID="ca-app-pub-4903263409458961~5751005760"
+          if grep -q "APPLICATION_ID" "$MANIFEST"; then
+            sed -i "s|APPLICATION_ID.*/>|APPLICATION_ID\" android:value=\"$ADMOB_ID\"/>|" "$MANIFEST"
           else
-            sed -i 's|</application>|    <meta-data android:name="com.google.android.gms.ads.APPLICATION_ID" android:value="ca-app-pub-4903263409458961~5751005760"/>\n    </application>|' "$MANIFEST"
+            sed -i "s|</application>|  <meta-data android:name=\"com.google.android.gms.ads.APPLICATION_ID\" android:value=\"$ADMOB_ID\"/>\n</application>|" "$MANIFEST"
           fi
-
-      - name: Add AdMob dependency to build.gradle
-        run: |
-          GRADLE="android/app/build.gradle"
-          if ! grep -q "play-services-ads" "$GRADLE"; then
-            sed -i '/dependencies {/a\    implementation "com.google.android.gms:play-services-ads:23.0.0"' "$GRADLE"
-          fi
-
-      - name: Fix Capacitor Android SDK versions
-        run: |
-          sed -i 's/compileSdk = .*/compileSdk = 34/' android/app/build.gradle || true
-          sed -i 's/targetSdk = .*/targetSdk = 34/' android/app/build.gradle || true
-          sed -i 's/compileSdkVersion .*/compileSdkVersion 34/' android/app/build.gradle || true
-          sed -i 's/targetSdkVersion .*/targetSdkVersion 34/' android/app/build.gradle || true
 
       - name: Sync Capacitor
         run: npx cap sync android
 
-      - name: Build APK (debug)
+      - name: Build APK debug
         working-directory: android
         run: |
           chmod +x gradlew
-          ./gradlew assembleDebug --no-daemon --stacktrace 2>&1 | tail -100
+          ./gradlew assembleDebug --no-daemon 2>&1 | tail -30
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: NexusAI-APK
+          name: NexusAI-debug
           path: android/app/build/outputs/apk/debug/app-debug.apk
           retention-days: 30
 
-      - name: Release APK
+      - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: apk-latest
-          name: "NexusAI APK (latest)"
-          body: |
-            APK de NexusAI con AdMob completo:
-            Banner, Interstitial, Rewarded, Rewarded Interstitial, Native Advanced, App Open.
+          tag_name: apk-${{ github.run_number }}
+          name: "NexusAI APK build ${{ github.run_number }}"
           files: android/app/build/outputs/apk/debug/app-debug.apk
-          make_latest: true
+          body: "APK debug. Instala activando Fuentes desconocidas."
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
