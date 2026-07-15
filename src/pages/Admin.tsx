@@ -178,12 +178,12 @@ type ChatMsg = { role: "user" | "assistant"; content: string; model?: string };
 
 // ── Playground IA incrustado en Admin ──────────────────────
 function AdminPlayground() {
-  const [selectedModel, setSelectedModel] = React.useState(0);
-  const [messages, setMessages] = React.useState<ChatMsg[]>([]);
-  const [input, setInput] = React.useState("");
-  const [loading, setLoading] = React.useState(false);
-  const [error, setError] = React.useState("");
-  const msgsRef = React.useRef<HTMLDivElement>(null);
+  const [selectedModel, setSelectedModel] = useState(0);
+  const [messages, setMessages] = useState<ChatMsg[]>([]);
+  const [input, setInput] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const msgsRef = useRef<HTMLDivElement>(null);
 
   const send = async () => {
     const text = input.trim();
@@ -273,10 +273,10 @@ function AdminPlayground() {
 
 // ── Generador de Apps incrustado en Admin ──────────────────
 function AdminAppBuilder() {
-  const [prompt, setPrompt] = React.useState("");
-  const [loading, setLoading] = React.useState(false);
-  const [generatedCode, setGeneratedCode] = React.useState("");
-  const [error, setError] = React.useState("");
+  const [prompt, setPrompt] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [generatedCode, setGeneratedCode] = useState("");
+  const [error, setError] = useState("");
 
   const generate = async () => {
     const text = prompt.trim();
@@ -351,8 +351,6 @@ function AdminAppBuilder() {
   );
 }
 
-// ── Importar React para los componentes standalone ──────────
-import React from "react";
 
 export default function Admin() {
   const { user, isAdmin, signOut } = useAuth();
@@ -1174,6 +1172,7 @@ Habla en español, directo y práctico. Máximo 3-4 párrafos por respuesta.`;
     </div>
   );
 }
+
 
 
 
