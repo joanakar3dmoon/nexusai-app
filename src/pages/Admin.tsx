@@ -746,7 +746,7 @@ INSTRUCCIONES CLAVE:
           <div className="text-center space-y-2">
             <Shield className="w-12 h-12 text-red-500 mx-auto" />
             <h2 className="text-xl font-bold text-foreground">Panel de Administración</h2>
-            <p className="text-xs text-muted-foreground">Acceso exclusivo — r3dm/Joan</p>
+            <p className="text-xs text-muted-foreground">Acceso exclusivo — r3dm/joan</p>
           </div>
           <div className="space-y-3">
             <input
@@ -1466,7 +1466,7 @@ INSTRUCCIONES CLAVE:
           {activeTab === "creator" && (
             <motion.div key="creator" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
               <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
-                <Cpu className="w-5 h-5 text-red-400" /> Centro de Creación — r3dm/Joan
+                <Cpu className="w-5 h-5 text-red-400" /> Centro de Creación — r3dm/joan
               </h2>
 
               {/* Playground IA incrustado */}
