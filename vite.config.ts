@@ -4,9 +4,12 @@ import tailwindcss from "@tailwindcss/vite";
 import { resolve } from "path";
 
 export default defineConfig(({ mode }) => ({
-  plugins: [react(), tailwindcss()],
-  // mode "capacitor" → rutas relativas ./ para WebView Android
-  // cualquier otro mode → rutas absolutas para GitHub Pages
+  plugins: [
+    react({
+      jsxRuntime: "classic",
+    }),
+    tailwindcss(),
+  ],
   base: mode === "capacitor" ? "./" : "/nexusai-app/",
   resolve: {
     alias: {
