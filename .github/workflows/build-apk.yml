@@ -30,7 +30,7 @@ jobs:
         run: npm install
 
       - name: Build Vite
-        run: npm run build
+        run: npm run build -- --mode capacitor
         env:
           VITE_GROQ_API_KEY: ${{ secrets.VITE_GROQ_API_KEY }}
           VITE_SUPABASE_URL: https://tolzqxflecqbjdefohom.supabase.co
