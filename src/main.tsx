@@ -1,3 +1,4 @@
+import React from "react";
 import { StrictMode, Component, type ReactNode } from "react";
 import { createRoot } from "react-dom/client";
 import { HashRouter, Routes, Route } from "react-router-dom";
