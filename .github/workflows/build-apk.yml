@@ -1,104 +1,53 @@
 name: Build NexusAI APK
 
 on:
-  workflow_dispatch: {}
+  workflow_dispatch:
   push:
     branches: [main]
     paths:
       - 'src/**'
       - 'public/**'
-      - 'index.html'
 
 jobs:
   build-apk:
     runs-on: ubuntu-latest
     timeout-minutes: 45
-
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'npm'
-
-      - name: Setup Java 17
-        uses: actions/setup-java@v4
+      - uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: '17'
-
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
-
-      - name: Install dependencies
+      - uses: android-actions/setup-android@v3
+      - name: Install deps
         run: npm ci
-
-      - name: Build web (Vite)
+      - name: Build Vite
         run: npm run build
         env:
           VITE_GROQ_API_KEY: ${{ secrets.VITE_GROQ_API_KEY }}
           VITE_SUPABASE_URL: https://tolzqxflecqbjdefohom.supabase.co
-          VITE_SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRvbHpxeGZsZWNxYmpkZWZvaG9tIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQxMDgwNzAsImV4cCI6MjA5OTY4NDA3MH0.pg6NFFywnGz_IrA4S2O7FkcpbSyC9TTd9RVpH1E7gBc
-
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
       - name: Install Capacitor
-        run: |
-          npm install @capacitor/core @capacitor/android @capacitor/cli
-          npm install @capacitor-community/admob
-
-      - name: Init Capacitor config
-        run: |
-          cat > capacitor.config.json << 'EOF'
-          {
-            "appId": "com.r3dm.nexusai",
-            "appName": "NexusAI",
-            "webDir": "dist",
-            "server": {
-              "androidScheme": "https",
-              "cleartext": true
-            },
-            "plugins": {
-              "SplashScreen": {
-                "launchShowDuration": 2000,
-                "backgroundColor": "#080808",
-                "showSpinner": false
-              },
-              "AdMob": {
-                "appId": "ca-app-pub-4903263409458961~5751005760",
-                "initializeForTesting": false
-              }
-            }
-          }
-          EOF
-
-      - name: Add Android platform
+        run: npm install @capacitor/core @capacitor/android @capacitor/cli
+      - name: Capacitor config
+        run: echo '{"appId":"com.r3dm.nexusai","appName":"NexusAI","webDir":"dist","server":{"androidScheme":"https","cleartext":true}}' > capacitor.config.json
+      - name: Add Android
         run: npx cap add android
-
-      - name: Copy web assets to Android
+      - name: Copy assets
         run: npx cap copy android
-
-      - name: Add AdMob App ID to AndroidManifest
-        run: |
-          MANIFEST="android/app/src/main/AndroidManifest.xml"
-          sed -i 's|</application>|    <meta-data android:name="com.google.android.gms.ads.APPLICATION_ID" android:value="ca-app-pub-4903263409458961~5751005760"/>
-    </application>|' $MANIFEST
-
-      - name: Build debug APK
+      - name: Add AdMob
+        run: sed -i 's|</application>|    <meta-data android:name="com.google.android.gms.ads.APPLICATION_ID" android:value="ca-app-pub-4903263409458961~5751005760"/>\n    </application>|' android/app/src/main/AndroidManifest.xml
+      - name: Build APK
         working-directory: android
         run: |
           chmod +x gradlew
-          ./gradlew assembleDebug --no-daemon --stacktrace
-
-      - name: Rename APK
-        run: |
-          cp android/app/build/outputs/apk/debug/app-debug.apk NexusAI-r3dm-joan.apk
-          ls -lh NexusAI-r3dm-joan.apk
-
-      - name: Upload APK
-        uses: actions/upload-artifact@v4
+          ./gradlew assembleDebug --no-daemon
+      - uses: actions/upload-artifact@v4
         with:
           name: NexusAI-r3dm-joan-apk
-          path: NexusAI-r3dm-joan.apk
+          path: android/app/build/outputs/apk/debug/app-debug.apk
           retention-days: 30
