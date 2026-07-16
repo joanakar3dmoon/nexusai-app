@@ -1,21 +1,18 @@
-name: Build APK
+name: Build NexusAI APK
 
 on:
   workflow_dispatch:
-    inputs:
-      app_name:
-        description: 'Nombre de la app (sin espacios)'
-        required: true
-        default: 'nexusai-app'
-      html_content:
-        description: 'HTML en base64 (opcional - usa el index.html si está vacío)'
-        required: false
-        default: ''
+  push:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'public/**'
+      - 'index.html'
 
 jobs:
-  build:
+  build-apk:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
 
     steps:
       - name: Checkout
@@ -25,8 +22,9 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
+          cache: 'npm'
 
-      - name: Setup Java
+      - name: Setup Java 17
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
@@ -35,81 +33,72 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: Install Capacitor CLI
-        run: npm install -g @capacitor/cli
+      - name: Install dependencies
+        run: npm ci
 
-      - name: Create app workspace
-        run: |
-          APP_NAME="${{ github.event.inputs.app_name }}"
-          mkdir -p apk-build/www
-          
-          # Decodificar HTML si viene en base64, si no usar plantilla
-          if [ -n "${{ github.event.inputs.html_content }}" ]; then
-            echo "${{ github.event.inputs.html_content }}" | base64 -d > apk-build/www/index.html
-          else
-            cat > apk-build/www/index.html << 'HTML'
-          <!DOCTYPE html>
-          <html lang="es">
-          <head>
-            <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>NexusAI App</title>
-            <style>
-              body { background: #0f0f0f; color: white; font-family: sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; }
-              h1 { color: #7c3aed; }
-            </style>
-          </head>
-          <body><h1>NexusAI App</h1><p>Generada por r3dm/joan</p></body>
-          </html>
-          HTML
-          fi
+      - name: Build web (Vite)
+        run: npm run build
+        env:
+          VITE_GROQ_API_KEY: ${{ secrets.VITE_GROQ_API_KEY }}
+          VITE_SUPABASE_URL: https://tolzqxflecqbjdefohom.supabase.co
+          VITE_SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRvbHpxeGZsZWNxYmpkZWZvaG9tIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQxMDgwNzAsImV4cCI6MjA5OTY4NDA3MH0.pg6NFFywnGz_IrA4S2O7FkcpbSyC9TTd9RVpH1E7gBc
 
-      - name: Init Capacitor project
-        working-directory: apk-build
+      - name: Install Capacitor
         run: |
-          APP_NAME="${{ github.event.inputs.app_name }}"
-          npm init -y
-          npm install @capacitor/core @capacitor/android
-          
-          cat > capacitor.config.json << EOF
+          npm install @capacitor/core @capacitor/android @capacitor/cli
+          npm install @capacitor-community/admob
+
+      - name: Init Capacitor config
+        run: |
+          cat > capacitor.config.json << 'EOF'
           {
-            "appId": "com.r3dm.${APP_NAME}",
-            "appName": "${APP_NAME}",
-            "webDir": "www",
+            "appId": "com.r3dm.nexusai",
+            "appName": "NexusAI",
+            "webDir": "dist",
             "server": {
-              "androidScheme": "https"
+              "androidScheme": "https",
+              "cleartext": true
+            },
+            "plugins": {
+              "SplashScreen": {
+                "launchShowDuration": 2000,
+                "backgroundColor": "#080808",
+                "showSpinner": false
+              },
+              "AdMob": {
+                "appId": "ca-app-pub-4903263409458961~5751005760",
+                "initializeForTesting": false
+              }
             }
           }
           EOF
-          
-          npx cap add android
 
-      - name: Copy web assets
-        working-directory: apk-build
+      - name: Add Android platform
+        run: npx cap add android
+
+      - name: Copy web assets to Android
         run: npx cap copy android
 
+      - name: Add AdMob App ID to AndroidManifest
+        run: |
+          MANIFEST="android/app/src/main/AndroidManifest.xml"
+          sed -i 's|</application>|    <meta-data android:name="com.google.android.gms.ads.APPLICATION_ID" android:value="ca-app-pub-4903263409458961~5751005760"/>
+    </application>|' $MANIFEST
+
       - name: Build debug APK
-        working-directory: apk-build/android
+        working-directory: android
         run: |
           chmod +x gradlew
-          ./gradlew assembleDebug --no-daemon
+          ./gradlew assembleDebug --no-daemon --stacktrace
 
-      - name: Upload APK artifact
+      - name: Rename APK
+        run: |
+          cp android/app/build/outputs/apk/debug/app-debug.apk NexusAI-r3dm-joan.apk
+          ls -lh NexusAI-r3dm-joan.apk
+
+      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ github.event.inputs.app_name }}-debug
-          path: apk-build/android/app/build/outputs/apk/debug/app-debug.apk
-          retention-days: 7
-
-      - name: APK info
-        run: |
-          APK_PATH="apk-build/android/app/build/outputs/apk/debug/app-debug.apk"
-          if [ -f "$APK_PATH" ]; then
-            SIZE=$(du -sh "$APK_PATH" | cut -f1)
-            echo "✅ APK generada correctamente"
-            echo "📦 Tamaño: $SIZE"
-            echo "📥 Descárgala desde la pestaña Artifacts de este workflow"
-          else
-            echo "❌ Error al generar la APK"
-            exit 1
-          fi
+          name: NexusAI-r3dm-joan-apk
+          path: NexusAI-r3dm-joan.apk
+          retention-days: 30
