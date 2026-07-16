@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { motion } from "motion/react";
 import {
   BarChart3, Users, DollarSign, CreditCard, Shield,
