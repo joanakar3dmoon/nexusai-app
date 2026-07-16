@@ -1,9 +1,9 @@
 // ============================================================
-// Auth — Login directo con Supabase (sin backend FastAPI)
+// Auth — Login con Supabase + fallback local para admin
 // ============================================================
 
 import { createContext, useContext, useState, useEffect, type ReactNode } from "react";
-import { supabase, supabaseAdmin, dbGetUserByEmail, dbUpsertUser, type DBUser } from "./supabase";
+import { supabaseAdmin, dbGetUserByEmail, dbUpsertUser } from "./supabase";
 
 export interface User {
   id: string;
@@ -21,17 +21,9 @@ export const ADMOB_BANNER = "ca-app-pub-4903263409458961/8825147276";
 export const ADMIN_EMAIL  = "joanlazaro83@gmail.com";
 const ADMIN_PASS          = "r3dm/Joan83";
 
-export function isPremium(user: User | null): boolean {
-  return user?.plan === "premium" || user?.role === "admin" || user?.plan === "admin";
-}
-export function showAds(user: User | null): boolean {
-  return !isPremium(user);
-}
-export function hasCredits(user: User | null): boolean {
-  if (!user) return false;
-  if (isPremium(user)) return true;
-  return user.credits > 0;
-}
+export function isPremium(u: User | null) { return u?.plan === "premium" || u?.role === "admin" || u?.plan === "admin"; }
+export function showAds(u: User | null) { return !isPremium(u); }
+export function hasCredits(u: User | null) { if (!u) return false; if (isPremium(u)) return true; return u.credits > 0; }
 
 export interface AuthContextType {
   user: User | null;
@@ -42,104 +34,67 @@ export interface AuthContextType {
 }
 
 const AuthContext = createContext<AuthContextType>({
-  user: null,
-  signIn: async () => false,
-  signOut: () => {},
-  isAdmin: false,
-  refreshUser: async () => {},
+  user: null, signIn: async () => false, signOut: () => {}, isAdmin: false, refreshUser: async () => {},
 });
 
-function mapDBUser(db: DBUser): User {
-  return {
-    id: db.id,
-    email: db.email,
-    name: db.name,
-    role: db.role,
-    plan: db.role === "admin" ? "admin" : db.credits > FREE_CREDITS ? "premium" : "free",
-    credits: db.credits,
-    balance: db.balance,
-  };
+function makeAdminUser(): User {
+  return { id: "admin-joan", email: ADMIN_EMAIL, name: "Joan r3dm", role: "admin", plan: "admin", credits: 99999, balance: 0 };
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
 
-  // Restaurar sesión al cargar
   useEffect(() => {
-    const stored = localStorage.getItem("nexusai_user");
-    if (stored) {
-      try {
-        setUser(JSON.parse(stored));
-      } catch {}
-    }
+    try {
+      const saved = localStorage.getItem("nexusai_user");
+      if (saved) setUser(JSON.parse(saved));
+    } catch {}
   }, []);
 
   const signIn = async (email: string, password: string): Promise<boolean> => {
+    const emailLC = email.trim().toLowerCase();
+
+    // ── ADMIN: acceso hardcoded, sin Supabase ──
+    if (emailLC === ADMIN_EMAIL.toLowerCase()) {
+      if (password !== ADMIN_PASS) return false;
+      const admin = makeAdminUser();
+      setUser(admin);
+      localStorage.setItem("nexusai_user", JSON.stringify(admin));
+      return true;
+    }
+
+    // ── USUARIOS NORMALES: buscar/crear en tabla users de Supabase ──
     try {
-      // ── Admin local sin Supabase ──────────────────────────
-      if (email.trim().toLowerCase() === ADMIN_EMAIL && password === ADMIN_PASS) {
-        const adminUser: User = {
-          id: "admin-joan",
-          email: ADMIN_EMAIL,
-          name: "Joan R3DMOON",
-          role: "admin",
-          plan: "admin",
-          credits: 999999,
-          balance: 0,
-        };
-        setUser(adminUser);
-        localStorage.setItem("nexusai_user", JSON.stringify(adminUser));
-        return true;
-      }
-
-      // ── Usuarios normales — Supabase Auth ─────────────────
-      // Intentar login con password primero
-      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
-        email: email.trim(),
-        password,
-      });
-
-      let userId: string;
-
-      if (authError || !authData.user) {
-        // Si no existe en auth, crear cuenta automática (cualquier email vale)
-        const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
-          email: email.trim(),
-          password,
-        });
-        if (signUpError || !signUpData.user) {
-          console.error("signUp error:", signUpError?.message);
-          return false;
-        }
-        userId = signUpData.user.id;
-      } else {
-        userId = authData.user.id;
-      }
-
-      // Buscar o crear perfil en tabla users
-      let dbUser = await dbGetUserByEmail(email.trim());
+      let dbUser = await dbGetUserByEmail(emailLC);
       if (!dbUser) {
-        const newUser: DBUser = {
-          id: userId,
-          email: email.trim(),
-          name: email.split("@")[0],
+        // Crear usuario nuevo automáticamente
+        const newId = crypto.randomUUID();
+        dbUser = await dbUpsertUser({
+          id: newId,
+          email: emailLC,
+          name: emailLC.split("@")[0],
           role: "user",
           credits: FREE_CREDITS,
           balance: 0,
           banned: false,
-        };
-        dbUser = await dbUpsertUser(newUser);
+        });
       }
-
       if (!dbUser) return false;
 
-      const userData = mapDBUser(dbUser);
+      const userData: User = {
+        id: dbUser.id,
+        email: dbUser.email,
+        name: dbUser.name || emailLC.split("@")[0],
+        role: dbUser.role || "user",
+        plan: (dbUser as any).plan || "free",
+        credits: typeof dbUser.credits === "number" ? dbUser.credits : FREE_CREDITS,
+        balance: dbUser.balance || 0,
+      };
       setUser(userData);
       localStorage.setItem("nexusai_user", JSON.stringify(userData));
       return true;
-
     } catch (e) {
-      console.error("Error login:", e);
+      console.error("Login error:", e);
       return false;
     }
   };
@@ -147,7 +102,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signOut = () => {
     setUser(null);
     localStorage.removeItem("nexusai_user");
-    supabase.auth.signOut().catch(() => {});
   };
 
   const refreshUser = async () => {
@@ -155,7 +109,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const dbUser = await dbGetUserByEmail(user.email);
       if (dbUser) {
-        const refreshed = mapDBUser(dbUser);
+        const refreshed: User = {
+          id: dbUser.id,
+          email: dbUser.email,
+          name: dbUser.name || user.name,
+          role: dbUser.role || "user",
+          plan: (dbUser as any).plan || "free",
+          credits: typeof dbUser.credits === "number" ? dbUser.credits : user.credits,
+          balance: dbUser.balance || 0,
+        };
         setUser(refreshed);
         localStorage.setItem("nexusai_user", JSON.stringify(refreshed));
       }
