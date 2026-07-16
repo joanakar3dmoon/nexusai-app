@@ -14,38 +14,51 @@ jobs:
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
+
       - uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: '17'
+
       - uses: android-actions/setup-android@v3
+
       - name: Install deps
-        run: npm ci
+        run: npm install
+
       - name: Build Vite
         run: npm run build
         env:
           VITE_GROQ_API_KEY: ${{ secrets.VITE_GROQ_API_KEY }}
           VITE_SUPABASE_URL: https://tolzqxflecqbjdefohom.supabase.co
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+
       - name: Install Capacitor
         run: npm install @capacitor/core @capacitor/android @capacitor/cli
+
       - name: Capacitor config
-        run: echo '{"appId":"com.r3dm.nexusai","appName":"NexusAI","webDir":"dist","server":{"androidScheme":"https","cleartext":true}}' > capacitor.config.json
+        run: |
+          echo '{"appId":"com.r3dm.nexusai","appName":"NexusAI","webDir":"dist","server":{"androidScheme":"https","cleartext":true}}' > capacitor.config.json
+
       - name: Add Android
         run: npx cap add android
+
       - name: Copy assets
         run: npx cap copy android
+
       - name: Add AdMob
-        run: sed -i 's|</application>|    <meta-data android:name="com.google.android.gms.ads.APPLICATION_ID" android:value="ca-app-pub-4903263409458961~5751005760"/>\n    </application>|' android/app/src/main/AndroidManifest.xml
+        run: |
+          sed -i 's|</application>|    <meta-data android:name="com.google.android.gms.ads.APPLICATION_ID" android:value="ca-app-pub-4903263409458961~5751005760"/>\n    </application>|' android/app/src/main/AndroidManifest.xml
+
       - name: Build APK
         working-directory: android
         run: |
           chmod +x gradlew
           ./gradlew assembleDebug --no-daemon
+
       - uses: actions/upload-artifact@v4
         with:
           name: NexusAI-r3dm-joan-apk
