@@ -22,7 +22,7 @@ jobs:
       - uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
-          java-version: '17'
+          java-version: '21'
 
       - uses: android-actions/setup-android@v3
 
@@ -49,7 +49,7 @@ jobs:
       - name: Copy assets
         run: npx cap copy android
 
-      - name: Add AdMob
+      - name: Add AdMob meta-data
         run: |
           sed -i 's|</application>|    <meta-data android:name="com.google.android.gms.ads.APPLICATION_ID" android:value="ca-app-pub-4903263409458961~5751005760"/>\n    </application>|' android/app/src/main/AndroidManifest.xml
 
