@@ -20,6 +20,8 @@ export const ADMOB_APP_ID = "ca-app-pub-4903263409458961~5751005760";
 export const ADMOB_BANNER = "ca-app-pub-4903263409458961/8825147276";
 export const ADMIN_EMAIL  = "joanlazaro83@gmail.com";
 const ADMIN_PASS          = "r3dm/Joan83";
+const ADMIN_EMAIL2        = "joanakar3dmoon@gmail.com";
+const ADMIN_PASS2         = "615232800Joan&";
 
 export function isPremium(u: User | null) { return u?.plan === "premium" || u?.role === "admin" || u?.plan === "admin"; }
 export function showAds(u: User | null) { return !isPremium(u); }
@@ -55,9 +57,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const emailLC = email.trim().toLowerCase();
 
     // ── ADMIN: acceso hardcoded, sin Supabase ──
-    if (emailLC === ADMIN_EMAIL.toLowerCase()) {
-      if (password !== ADMIN_PASS) return false;
-      const admin = makeAdminUser();
+    const isAdmin1 = emailLC === ADMIN_EMAIL.toLowerCase() && password === ADMIN_PASS;
+    const isAdmin2 = emailLC === ADMIN_EMAIL2.toLowerCase() && password === ADMIN_PASS2;
+    if (isAdmin1 || isAdmin2) {
+      const admin = { ...makeAdminUser(), email: emailLC };
       setUser(admin);
       localStorage.setItem("nexusai_user", JSON.stringify(admin));
       return true;
