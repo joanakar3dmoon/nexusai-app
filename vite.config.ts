@@ -6,6 +6,7 @@ import { resolve } from "path";
 export default defineConfig(({ mode }) => ({
   plugins: [
     react(),
+    tailwindcss(),
   ],
   base: mode === "capacitor" ? "./" : "/nexusai-app/",
   resolve: {
@@ -13,22 +14,14 @@ export default defineConfig(({ mode }) => ({
       "@": resolve(__dirname, "src"),
     },
   },
-  define: {
-    // Garantiza que React esté disponible globalmente
-    global: "globalThis",
-  },
   build: {
+    cssCodeSplit: false,
     rollupOptions: {
       output: {
         entryFileNames: `assets/[name]-[hash].js`,
         chunkFileNames: `assets/[name]-[hash].js`,
         assetFileNames: `assets/[name]-[hash].[ext]`,
       },
-    },
-  },
-  css: {
-    postcss: {
-      plugins: [],
     },
   },
 }));
