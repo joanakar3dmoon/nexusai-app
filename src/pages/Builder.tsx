@@ -126,7 +126,7 @@ function injectAds(html: string): string {
       addMsg('...pensando',false);
       try{
         const r=await fetch('https://api.groq.com/openai/v1/chat/completions',{
-          method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${GROQ_KEY}`},
+          method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer ' + GROQ_KEY},
           body:JSON.stringify({model: "llama-3.1-8b-instant",messages:[{role:'system',content:'Asistente de app. Responde corto en español.'},{role:'user',content:q}],max_tokens:200}),
           signal:AbortSignal.timeout(15000)
         });
