@@ -1865,10 +1865,10 @@ CERO texto extra. CERO explicaciones.`,
       </div>
 
       {/* ── CUERPO ─────────────────────────────────────────── */}
-      <div style={{ display: "flex", flex: 1, overflow: "hidden" }}>
+      <div style={{ display: "flex", flex: 1, overflow: "hidden", flexDirection: isMobile ? "column" : "row" }}>
 
         {/* PANEL IZQUIERDO */}
-        <div style={{ width: 300, minWidth: 300, borderRight: "1px solid rgba(255,255,255,0.07)", display: "flex", flexDirection: "column", overflow: "hidden", background: "#0d0d1a" }}>
+        <div style={{ width: isMobile ? "100%" : 300, minWidth: isMobile ? "auto" : 300, maxHeight: isMobile ? "auto" : "100%", borderRight: isMobile ? "none" : "1px solid rgba(255,255,255,0.07)", borderBottom: isMobile ? "1px solid rgba(255,255,255,0.07)" : "none", display: "flex", flexDirection: "column", overflow: "hidden", background: "#0d0d1a" }}>
 
           {/* Prompt */}
           <div style={{ padding: 14, borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
@@ -1947,7 +1947,7 @@ CERO texto extra. CERO explicaciones.`,
         </div>
 
         {/* PREVIEW */}
-        <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", background: "#06060f", overflow: "hidden", padding: viewMode === "mobile" ? 20 : 0 }}>
+        <div style={{ flex: 1, display: isMobile && !html ? "none" : "flex", minHeight: isMobile ? 300 : "auto", alignItems: "center", justifyContent: "center", background: "#06060f", overflow: "hidden", padding: viewMode === "mobile" ? 20 : 0 }}>
           {showCode ? (
             <pre style={{ width: "100%", height: "100%", overflow: "auto", padding: 20, fontSize: ".75rem", color: "#a78bfa", background: "#06060f", margin: 0, whiteSpace: "pre-wrap", wordBreak: "break-all" }}>
               {html || "// El código aparecerá aquí"}
