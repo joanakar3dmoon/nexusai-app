@@ -1,31 +1,26 @@
 {
   "name": "NexusAI — r3dm/joan",
   "short_name": "NexusAI",
-  "description": "Plataforma SaaS para creadores — by r3dm/joan",
+  "description": "Plataforma IA gratuita para creadores — by r3dm/joan",
   "start_url": "/nexusai-app/",
   "scope": "/nexusai-app/",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#000000",
   "theme_color": "#000000",
+  "categories": ["productivity", "utilities"],
   "icons": [
     {
-      "src": "/nexusai-app/icon-192.png?v=1784164465",
+      "src": "/nexusai-app/icon-192.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/nexusai-app/icon-512.png?v=1784164465",
+      "src": "/nexusai-app/icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "any"
-    },
-    {
-      "src": "/nexusai-app/icon-512.png?v=1784164465",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "maskable"
+      "purpose": "any maskable"
     }
   ]
 }
