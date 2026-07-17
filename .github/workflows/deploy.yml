@@ -24,6 +24,7 @@ jobs:
           node-version: 22
       - name: Install and Build
         env:
+          VITE_GROQ_KEY: ${{ secrets.VITE_GROQ_KEY }}
           VITE_GROQ_API_KEY: ${{ secrets.VITE_GROQ_API_KEY }}
           VITE_OPENROUTER_API_KEY: ${{ secrets.VITE_OPENROUTER_API_KEY }}
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
