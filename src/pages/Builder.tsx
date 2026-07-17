@@ -1585,11 +1585,18 @@ export default function Builder() {
   const [html, setHtml] = useState("");
   const [isLive, setIsLive] = useState(false);
   const [viewMode, setViewMode] = useState<"mobile"|"desktop">("desktop");
+  const [isMobile, setIsMobile] = useState(typeof window !== "undefined" && window.innerWidth < 768);
   const [showCode, setShowCode] = useState(false);
   const [finalized, setFinalized] = useState(false);
   const [feedback, setFeedback] = useState("");
   const [isFeedback, setIsFeedback] = useState(false);
   const [appName, setAppName] = useState("");
+
+  useEffect(() => {
+    const handler = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener("resize", handler);
+    return () => window.removeEventListener("resize", handler);
+  }, []);
 
   const addLog = (msg: string) => setLog(prev => [...prev, `[${new Date().toLocaleTimeString()}] ${msg}`]);
 
