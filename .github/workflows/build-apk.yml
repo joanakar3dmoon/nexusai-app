@@ -36,6 +36,7 @@ jobs:
           cp android-src/settings.gradle settings.gradle
           cp android-src/build.gradle.root build.gradle
           cp android-src/build.gradle.app app/build.gradle
+          cp android-src/gradle.properties gradle.properties
           cp public/icon-192.png app/src/main/res/mipmap-hdpi/ic_launcher.png 2>/dev/null || true
 
       - name: Build APK
