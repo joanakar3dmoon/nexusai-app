@@ -1,4 +1,4 @@
-const CACHE = "nexusai-v1";
+const CACHE = "nexusai-v3";
 const ASSETS = [
   "/nexusai-app/",
   "/nexusai-app/index.html",
