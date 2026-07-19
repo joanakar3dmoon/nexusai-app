@@ -528,22 +528,24 @@ export default function Dashboard() {
                         <Trash2 className="w-4 h-4" />
                       </button>
                     </div>
-                    {app.source_code && (
-                      <div className="flex gap-2 mt-3 flex-wrap">
-                        <Button variant="outline" size="sm" className="cursor-pointer text-xs" onClick={() => setPreviewCode(app.source_code!)}>
-                          <Globe className="w-3 h-3 mr-1" /> Vista previa
-                        </Button>
-                        <Button variant="outline" size="sm" className="cursor-pointer text-xs" onClick={() => setSelectedCode(app.source_code!)}>
-                          <Code2 className="w-3 h-3 mr-1" /> Código
-                        </Button>
+                    <div className="flex gap-2 mt-3 flex-wrap">
+                        {app.source_code && (
+                          <Button variant="outline" size="sm" className="cursor-pointer text-xs" onClick={() => setPreviewCode(app.source_code!)}>
+                            <Globe className="w-3 h-3 mr-1" /> Vista previa
+                          </Button>
+                        )}
+                        {app.source_code && (
+                          <Button variant="outline" size="sm" className="cursor-pointer text-xs" onClick={() => setSelectedCode(app.source_code!)}>
+                            <Code2 className="w-3 h-3 mr-1" /> Código
+                          </Button>
+                        )}
                         <Button variant="outline" size="sm" className="cursor-pointer text-xs" onClick={() => downloadApp(app)}>
                           <Download className="w-3 h-3 mr-1" /> Descargar .html
                         </Button>
                         <Button variant="outline" size="sm" className="cursor-pointer text-xs" onClick={() => navigate("/builder")}>
-                          <Zap className="w-3 h-3 mr-1" /> Mejorar con IA
+                          <Zap className="w-3 h-3 mr-1" /> Regenerar con IA
                         </Button>
                       </div>
-                    )}
                   </CardContent>
                 </Card>
               ))}
