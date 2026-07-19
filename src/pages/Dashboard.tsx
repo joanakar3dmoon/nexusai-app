@@ -240,30 +240,16 @@ export default function Dashboard() {
     </div>
   ) : null;
 
-  const handleGenerate = async () => {
-    // Acceso libre — sin bloqueo de créditos
-    if (!prompt.trim() || generating) return;
-    // Muro de créditos
-    const userCredits = user?.credits ?? 0;
-
-  // ---- PayPal Subscriptions -----------------------------------
+  const PAYPAL_LINK = "https://www.paypal.com/paypalme/joanlazaro83/9.99";
   const [subscribing, setSubscribing] = React.useState(false);
   const [subMsg, setSubMsg] = React.useState("");
-
-  // PAYPAL_PLAN_ID se configura como variable de entorno Vite.
-  // Por ahora usamos el flujo de pago directo (PayPal.me) con
-  // verificación automática al regresar a la app.
-  const PAYPAL_LINK = "https://www.paypal.com/paypalme/joanlazaro83/9.99";
 
   const handleSubscribe = async () => {
     if (!user) return;
     setSubscribing(true);
     setSubMsg("Redirigiendo a PayPal...");
-    // Guardamos el user_id en localStorage para verificar al volver
     localStorage.setItem("nexusai_pending_upgrade", user.id);
-    // Abrimos PayPal en nueva pestaña
     window.open(PAYPAL_LINK, "_blank");
-    // Esperamos 8 s y luego mostramos botón de confirmación manual
     setTimeout(() => {
       setSubscribing(false);
       setSubMsg("¿Ya has pagado? Pulsa confirmar para activar Premium.");
@@ -275,9 +261,8 @@ export default function Dashboard() {
     setSubscribing(true);
     setSubMsg("Activando Premium...");
     try {
-      const result = await api.activatePlan(user.id, "premium", "paypal-manual");
+      const result = await (api as any).activatePlan(user.id, "premium", "paypal-manual");
       if (result?.ok) {
-        // Refrescar usuario
         await refreshUser();
         setSubMsg("✅ ¡Premium activado! Recarga si no ves los cambios.");
         localStorage.removeItem("nexusai_pending_upgrade");
@@ -289,10 +274,9 @@ export default function Dashboard() {
     }
     setSubscribing(false);
   };
-    if (user?.role !== "admin" && userCredits <= 0) {
-      setPaywallOpen(true);
-      return;
-    }
+
+  const handleGenerate = async () => {
+    if (!prompt.trim() || generating) return;
     setGenerating(true);
     setStatusLog([]);
     const appName = prompt.trim().split(" ").slice(0, 4).join(" ");
