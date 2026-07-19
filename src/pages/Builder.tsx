@@ -1627,11 +1627,7 @@ export default function Builder() {
 
   const handleBuild = async () => {
     if (!prompt.trim() || isBuilding) return;
-    // ── Muro de créditos ──────────────────────────────────
-    if (user && user.role !== "admin" && (user.credits ?? 0) <= 0) {
-      setPaywallOpen(true);
-      return;
-    }
+    // ── Muro de créditos (desactivado — acceso libre) ────
     setIsBuilding(true);
     setFinalized(false);
     setIsLive(false);
