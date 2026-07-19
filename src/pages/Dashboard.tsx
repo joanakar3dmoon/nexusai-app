@@ -223,6 +223,8 @@ export default function Dashboard() {
   const [statusLog, setStatusLog] = useState<string[]>([]);
   const [selectedCode, setSelectedCode] = useState<string | null>(null);
   const [previewCode, setPreviewCode] = useState<string | null>(null);
+  const [publishingId, setPublishingId] = useState<string | null>(null);
+  const [publishedUrls, setPublishedUrls] = useState<Record<string, string>>({});
   const [copied, setCopied] = useState(false);
   const [activeTab, setActiveTab] = useState<TabId>("generator");
 
@@ -310,6 +312,39 @@ export default function Dashboard() {
     } catch (err) {
       addLog(`❌ ${err instanceof Error ? err.message : "Error"}`);
     } finally { setGenerating(false); }
+  };
+
+  const publishApp = async (app: AppRecord) => {
+    if (!app.source_code) {
+      alert("Esta app no tiene código guardado. Genera una nueva app para publicarla.");
+      return;
+    }
+    setPublishingId(app.id);
+    try {
+      // Subir a Supabase Storage como HTML público
+      const { createClient } = await import("@supabase/supabase-js");
+      const sb = createClient(
+        import.meta.env.VITE_SUPABASE_URL,
+        import.meta.env.VITE_SUPABASE_ANON_KEY
+      );
+      const fileName = `apps/${app.id}.html`;
+      const blob = new Blob([app.source_code], { type: "text/html" });
+      const { error } = await sb.storage.from("published-apps").upload(fileName, blob, {
+        contentType: "text/html",
+        upsert: true,
+      });
+      if (error) throw error;
+      const { data } = sb.storage.from("published-apps").getPublicUrl(fileName);
+      const publicUrl = data.publicUrl;
+      setPublishedUrls(prev => ({ ...prev, [app.id]: publicUrl }));
+      // Copiar al portapapeles
+      await navigator.clipboard.writeText(publicUrl);
+      alert(`✅ App publicada!\nURL copiada al portapapeles:\n${publicUrl}`);
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      alert("Error al publicar: " + msg);
+    }
+    setPublishingId(null);
   };
 
   const deleteApp = async (id: string) => {
@@ -801,7 +836,7 @@ export default function Dashboard() {
                 const blob = new Blob([previewCode], { type: "text/html" });
                 window.open(URL.createObjectURL(blob), "_blank");
               }}>
-                <ExternalLink className="w-3 h-3 mr-1" /> Abrir en pestaña
+                <ExternalLink className="w-3 h-3 mr-1" /> Pantalla completa
               </Button>
               <button onClick={() => setPreviewCode(null)} className="text-muted-foreground hover:text-foreground cursor-pointer"><X className="w-4 h-4" /></button>
             </div>
