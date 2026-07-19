@@ -1,4 +1,4 @@
-import { showBanner } from "@/lib/admob";
+import { dbGetApps, dbDeleteApp, dbSaveApp, dbGetSubscriptionsSafe, dbSaveSubscriptionSafe, dbAddRevenueSafe, dbApprovePremium } from "@/lib/supabase"import { showBanner } from "@/lib/admob";
 import { motion } from "motion/react";
 import {
   BrainCircuit, Bot, Code2, Settings, CreditCard, LogOut, Menu, X,
@@ -263,7 +263,19 @@ export default function Dashboard() {
     if (!user) return;
     setSubscribing(true);
     setSubMsg("Redirigiendo a PayPal...");
+    // Guardar suscripción pendiente en Supabase
+    const subId = crypto.randomUUID();
+    await dbSaveSubscriptionSafe({
+      id: subId,
+      user_id: user.id,
+      user_email: user.email || "",
+      plan: "premium",
+      amount: 9.99,
+      status: "pending",
+      paypal_ref: "manual-paypal",
+    });
     localStorage.setItem("nexusai_pending_upgrade", user.id);
+    localStorage.setItem("nexusai_pending_sub_id", subId);
     window.open(PAYPAL_LINK, "_blank");
     setTimeout(() => {
       setSubscribing(false);

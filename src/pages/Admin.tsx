@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/lib/auth";
-import { dbGetUsers, dbGetApps, dbGetWithdrawals, dbUpdateUser, dbDeleteApp, dbSaveApp, dbSaveWithdrawal, dbUpdateWithdrawal, dbGetSubscriptionsSafe, dbGetRevenueSafe, dbAddRevenueSafe, dbGetTotalRevenueSafe } from "@/lib/supabase";
+import { dbGetUsers, dbGetApps, dbGetWithdrawals, dbUpdateUser, dbDeleteApp, dbSaveApp, dbSaveWithdrawal, dbUpdateWithdrawal, dbGetSubscriptionsSafe, dbGetRevenueSafe, dbAddRevenueSafe, dbGetTotalRevenueSafe, dbApprovePremium } from "@/lib/supabase";
 import { useNavigate } from "react-router-dom";
 
 // ──────────────────────────────────────────────
@@ -48,7 +48,7 @@ interface Withdrawal {
   note?: string;
 }
 
-type Tab = "dashboard" | "users" | "apps" | "withdrawals" | "stats" | "bot" | "creator" | "revenue";
+type Tab = "dashboard" | "users" | "apps" | "subscriptions" | "withdrawals" | "stats" | "bot" | "creator" | "revenue";
 
 // ──────────────────────────────────────────────
 // Helpers
@@ -639,12 +639,23 @@ export default function Admin() {
   // ── Load from localStorage ──────────────────
   const loadData = useCallback(async () => {
     try {
-      const [u, a, w] = await Promise.all([dbGetUsers(), dbGetApps(), dbGetWithdrawals()]);
+      const [u, a, w, subs] = await Promise.all([dbGetUsers(), dbGetApps(), dbGetWithdrawals(), dbGetSubscriptionsSafe()]);
       setUsers(u as any);
       setApps(a as any);
       setWithdrawals(w as any);
+      setSubscriptions(subs);
     } catch(e) { console.error("loadData:", e); }
   }, []);
+
+  // Aprobar Premium manualmente
+  async function approvePremium(sub: any) {
+    const ok = await dbApprovePremium(sub.user_id, sub.id);
+    if (ok) {
+      setSubscriptions(prev => prev.map(s => s.id === sub.id ? {...s, status: "active"} : s));
+      setApprovedNote(\`✅ Premium activado para \${sub.user_email}\`);
+      setTimeout(() => setApprovedNote(null), 4000);
+    }
+  }
 
   useEffect(() => {
     loadData();
@@ -887,7 +898,8 @@ INSTRUCCIONES CLAVE:
     { id: "dashboard", icon: BarChart3, label: "Dashboard" },
     { id: "users", icon: Users, label: "Usuarios", badge: bannedCount || undefined },
     { id: "apps", icon: Bot, label: "Apps", badge: apps.length || undefined },
-    { id: "withdrawals", icon: Wallet, label: "Retiros", badge: pendingCount || undefined },
+    { id: "subscriptions", icon: CreditCard, label: "Suscripciones", badge: subscriptions.filter((s:any)=>s.status==="pending").length || undefined },
+      { id: "withdrawals", icon: Wallet, label: "Retiros", badge: pendingCount || undefined },
       { id: "revenue", icon: TrendingUp, label: "Ingresos" },
     { id: "stats", icon: Activity, label: "Estadísticas" },
     { id: "bot", icon: Bot, label: "Bot Reinversión 💹" },
@@ -1259,6 +1271,46 @@ INSTRUCCIONES CLAVE:
           {/* ════════════════════════════════════
               TAB: Solicitudes de retiro
           ════════════════════════════════════ */}
+          {activeTab === "subscriptions" && (
+            <motion.div key="subscriptions" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-4">
+              <h2 className="text-lg font-semibold">💳 Suscripciones Premium</h2>
+              {subscriptions.length === 0 ? (
+                <p className="text-muted-foreground text-sm">No hay suscripciones registradas.</p>
+              ) : (
+                <div className="space-y-3">
+                  {subscriptions.map((s: any) => (
+                    <Card key={s.id} className="bg-card/60 border-border/30">
+                      <CardContent className="p-4">
+                        <div className="flex items-center justify-between gap-3 flex-wrap">
+                          <div>
+                            <p className="font-medium text-sm">{s.user_email}</p>
+                            <p className="text-xs text-muted-foreground">€{s.amount}/mes · {new Date(s.created_at).toLocaleDateString()}</p>
+                            <p className="text-xs text-muted-foreground">PayPal ref: {s.paypal_ref || "manual"}</p>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Badge className={
+                              s.status === "active" ? "bg-green-500/20 text-green-400 border-green-500/30" :
+                              s.status === "pending" ? "bg-yellow-500/20 text-yellow-400 border-yellow-500/30" :
+                              "bg-red-500/20 text-red-400 border-red-500/30"
+                            }>
+                              {s.status === "active" ? "✅ Activo" : s.status === "pending" ? "⏳ Pendiente" : "❌ Cancelado"}
+                            </Badge>
+                            {s.status === "pending" && (
+                              <Button size="sm" onClick={() => approvePremium(s)}
+                                className="bg-green-600 hover:bg-green-700 text-white text-xs h-7 px-3">
+                                ✅ Aprobar
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </motion.div>
+          )}
+
           {activeTab === "withdrawals" && (
             <motion.div
               key="withdrawals"
