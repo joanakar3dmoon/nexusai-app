@@ -241,11 +241,7 @@ export default function Dashboard() {
   ) : null;
 
   const handleGenerate = async () => {
-    // Bloquear si free sin créditos
-    if (!userIsPremium && (user?.credits ?? 0) <= 0) {
-      alert("⚠️ Has agotado tus 5 créditos gratuitos.\n\nSuscríbete al plan Premium para créditos ilimitados y sin anuncios.\n\n👉 Contacta: joanlazaro83@gmail.com");
-      return;
-    }
+    // Acceso libre — sin bloqueo de créditos
     if (!prompt.trim() || generating) return;
     // Muro de créditos
     const userCredits = user?.credits ?? 0;
