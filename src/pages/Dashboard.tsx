@@ -367,9 +367,9 @@ export default function Dashboard() {
   };
 
   const deleteApp = async (id: string) => {
-    if (!window.confirm("¿Eliminar esta app?")) return;
+    setApps(prev => prev.filter(a => a.id !== id));
     try {
-      const res = await fetch(
+      await fetch(
         `https://tolzqxflecqbjdefohom.supabase.co/rest/v1/apps?id=eq.${id}`,
         {
           method: "DELETE",
@@ -381,13 +381,8 @@ export default function Dashboard() {
           }
         }
       );
-      if (res.ok || res.status === 204) {
-        setApps(prev => prev.filter(a => a.id !== id));
-      } else {
-        alert("Error al eliminar. Intenta de nuevo.");
-      }
     } catch (e) {
-      alert("Error de conexión.");
+      console.error("Error al borrar:", e);
     }
   };
 
