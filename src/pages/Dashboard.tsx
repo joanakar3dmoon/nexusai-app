@@ -41,9 +41,9 @@ async function loadStoredAppsAsync(): Promise<AppRecord[]> {
     return (data || []).map((r: any) => ({
       id: r.id,
       title: r.title || r.name || "App",
-      prompt: r.prompt || "",
-      html: r.source_code || r.html || "",
-      source_code: r.source_code || r.html || "",
+      prompt: r.prompt || r.description || "",
+      html: r.html_code || r.source_code || r.html || "",
+      source_code: r.html_code || r.source_code || r.html || "",
       createdAt: r.created_at,
     }));
   } catch { return []; }
