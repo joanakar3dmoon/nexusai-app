@@ -32,8 +32,8 @@ type TabId = "generator" | "myapps" | "monetize" | "credits";
 // ---- Supabase helpers para apps ----
 import { createClient } from "@supabase/supabase-js";
 const _sb = createClient(
-  "https://tolzqxflecqbjdefohom.supabase.co",
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRvbHpxeGZsZWNxYmpkZWZvaG9tIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4NDEwODA3MCwiZXhwIjoyMDk5Njg0MDcwfQ.FaTcZpS4tVKJl8rIP-Vfv0nMub2bnNJNFFo9t1w7JfU"
+  "https://zhkrkwmdpggzhoyqzqze.supabase.co",
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inpoa3Jrd21kcGdnemhveXF6cXplIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4NDQ1OTQyOSwiZXhwIjoyMTAwMDM1NDI5fQ.n99GDy0HRcKwcl2E1dZe5p2aLiZoO9ST4XbJoFWfL3Q"
 );
 async function loadStoredAppsAsync(): Promise<AppRecord[]> {
   try {
@@ -370,12 +370,12 @@ export default function Dashboard() {
     setApps(prev => prev.filter(a => a.id !== id));
     try {
       await fetch(
-        `https://tolzqxflecqbjdefohom.supabase.co/rest/v1/apps?id=eq.${id}`,
+        `https://zhkrkwmdpggzhoyqzqze.supabase.co/rest/v1/apps?id=eq.${id}`,
         {
           method: "DELETE",
           headers: {
-            "apikey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRvbHpxeGZsZWNxYmpkZWZvaG9tIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4NDEwODA3MCwiZXhwIjoyMDk5Njg0MDcwfQ.FaTcZpS4tVKJl8rIP-Vfv0nMub2bnNJNFFo9t1w7JfU",
-            "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRvbHpxeGZsZWNxYmpkZWZvaG9tIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4NDEwODA3MCwiZXhwIjoyMDk5Njg0MDcwfQ.FaTcZpS4tVKJl8rIP-Vfv0nMub2bnNJNFFo9t1w7JfU",
+            "apikey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inpoa3Jrd21kcGdnemhveXF6cXplIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4NDQ1OTQyOSwiZXhwIjoyMTAwMDM1NDI5fQ.n99GDy0HRcKwcl2E1dZe5p2aLiZoO9ST4XbJoFWfL3Q",
+            "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inpoa3Jrd21kcGdnemhveXF6cXplIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4NDQ1OTQyOSwiZXhwIjoyMTAwMDM1NDI5fQ.n99GDy0HRcKwcl2E1dZe5p2aLiZoO9ST4XbJoFWfL3Q",
             "Content-Type": "application/json",
             "Prefer": "return=minimal"
           }
