@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { showBanner, showInterstitial } from "@/lib/admob";
+import { useAuth, showAds } from "@/lib/auth";
 import { BrainCircuit, Send, Loader2, Download, Code2, Smartphone, Monitor, Check, RefreshCw, MessageSquare } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/auth";
@@ -1579,6 +1580,7 @@ const STEPS: Step[] = [
 
 export default function Builder() {
   const { user } = useAuth();
+  const userShowAds = showAds(user);
   const navigate = useNavigate();
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
@@ -1598,7 +1600,7 @@ export default function Builder() {
   const [appName, setAppName] = useState("");
 
   // AdMob banner nativo (solo APK)
-  useEffect(() => { showBanner(); }, []);
+  useEffect(() => { if (userShowAds) showBanner(); }, [userShowAds]);
 
   useEffect(() => {
     const handler = () => setIsMobile(window.innerWidth < 768);
@@ -1759,7 +1761,7 @@ IMPORTANTE: Genera datos de ejemplo MUY específicos para esta app (nombres, val
       setStep("save", "done");
       setFinalized(true);
       addLog("🎉 ¡App lista para publicar!");
-      showInterstitial(); // AdMob intersticial al finalizar;
+      if (userShowAds) showInterstitial();;
 
     } catch (err: any) {
       addLog(`❌ Error: ${err.message}`);
