@@ -357,7 +357,7 @@ export default function Dashboard() {
     {renderPaywall()}
     <div className="min-h-screen bg-background text-foreground flex">
       {/* Sidebar */}
-      <aside className={`fixed md:sticky top-0 left-0 z-40 h-screen w-64 border-r border-border bg-card/50 backdrop-blur-xl flex flex-col transition-transform ${sidebarOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"}`}>
+      <aside className={`fixed top-0 left-0 z-40 h-screen w-64 border-r border-border bg-card/50 backdrop-blur-xl flex-col transition-transform duration-300 md:sticky md:flex ${sidebarOpen ? "flex translate-x-0" : "hidden md:flex -translate-x-full md:translate-x-0"}`}>
         <div className="flex items-center gap-2 p-4 border-b border-border">
           <BrainCircuit className="text-primary w-6 h-6" />
           <span className="font-bold">NexusAI</span>
@@ -400,9 +400,29 @@ export default function Dashboard() {
       </aside>
 
       {sidebarOpen && <div className="fixed inset-0 z-30 bg-black/50 md:hidden" onClick={() => setSidebarOpen(false)} />}
+      {/* Bottom navigation — solo móvil */}
+      <nav className="fixed bottom-0 left-0 right-0 z-50 flex md:hidden bg-card/95 backdrop-blur-xl border-t border-border h-16">
+        {[
+          { id: "generator", icon: "🤖", label: "Generar" },
+          { id: "myapps",    icon: "📱", label: "Mis Apps" },
+          { id: "monetize",  icon: "💰", label: "Monetizar" },
+          { id: "credits",   icon: "💳", label: "Créditos" },
+        ].map(item => (
+          <button
+            key={item.id}
+            onClick={() => setActiveTab(item.id as TabId)}
+            className={`flex-1 flex flex-col items-center justify-center gap-0.5 text-xs transition-colors ${
+              activeTab === item.id ? "text-primary" : "text-muted-foreground"
+            }`}
+          >
+            <span className="text-lg leading-none">{item.icon}</span>
+            <span>{item.label}</span>
+          </button>
+        ))}
+      </nav>
 
       {/* Main */}
-      <div className="flex-1 flex flex-col min-h-screen">
+      <div className="flex-1 flex flex-col min-h-screen pb-16 md:pb-0">
         <header className="sticky top-0 z-20 border-b border-border bg-background/80 backdrop-blur-xl">
           <div className="flex items-center justify-between px-4 h-14">
             <div className="flex items-center gap-3">
