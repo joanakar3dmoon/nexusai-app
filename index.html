@@ -52,13 +52,29 @@
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
     <script>
-    if ('serviceWorker' in navigator) {
-      window.addEventListener('load', () => {
-        navigator.serviceWorker.register('/nexusai-app/sw.js')
-          .then(r => console.log('SW registrado:', r.scope))
-          .catch(e => console.log('SW error:', e));
+  // Forzar limpieza de service workers y cachés viejas
+  if ('serviceWorker' in navigator) {
+    // Desregistrar todos los SW viejos primero
+    navigator.serviceWorker.getRegistrations().then(regs => {
+      regs.forEach(reg => {
+        if (reg.active && reg.active.scriptURL && !reg.active.scriptURL.includes('sw.js')) {
+          reg.unregister();
+        }
+      });
+    });
+    // Borrar cachés que no sean v5
+    if ('caches' in window) {
+      caches.keys().then(keys => {
+        keys.filter(k => k !== 'nexusai-v5').forEach(k => caches.delete(k));
       });
     }
-  </script>
+    // Registrar SW nuevo
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('./sw.js').then(reg => {
+        reg.update();
+      });
+    });
+  }
+</script>
 </body>
 </html>
