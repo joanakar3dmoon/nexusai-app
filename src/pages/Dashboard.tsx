@@ -575,6 +575,9 @@ export default function Dashboard() {
                         <Button variant="outline" size="sm" className="cursor-pointer text-xs" onClick={() => navigate("/builder")}>
                           <Zap className="w-3 h-3 mr-1" /> Regenerar
                         </Button>
+                        <Button variant="outline" size="sm" className="cursor-pointer text-xs border-red-500/30 text-red-400 hover:bg-red-500/10" onClick={() => { if(window.confirm("Eliminar esta app?")) deleteApp(app.id); }}>
+                          <Trash2 className="w-3 h-3 mr-1" /> Eliminar
+                        </Button>
                       </div>
                   </CardContent>
                 </Card>
