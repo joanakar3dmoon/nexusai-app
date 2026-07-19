@@ -15,8 +15,28 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create Supabase tables
+        env:
+          SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.VITE_SUPABASE_SECRET_KEY }}
+        run: |
+          node -e "
+          const https = require('https');
+          const url = new URL(process.env.SUPABASE_URL + '/rest/v1/rpc/nexus_migrate');
+          const key = process.env.SUPABASE_SERVICE_KEY;
+          const req = https.request(url, {method:'POST', headers:{'apikey':key,'Authorization':'Bearer '+key,'Content-Type':'application/json'}}, r => {
+            let d=''; r.on('data',c=>d+=c); r.on('end',()=>console.log('migrate:',r.statusCode, d.slice(0,100)));
+          });
+          req.on('error', e => console.log('migrate skip:', e.message));
+          req.end('{}');
+          " || true
+
   build:
     runs-on: ubuntu-latest
+    needs: migrate
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
