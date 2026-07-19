@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
+import { showBanner, showInterstitial } from "@/lib/admob";
 import { BrainCircuit, Send, Loader2, Download, Code2, Smartphone, Monitor, Check, RefreshCw, MessageSquare } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/auth";
@@ -80,6 +81,10 @@ function extractHTML(raw: string): string {
 
 // ── Inyectar monetización ────────────────────────────────────
 function injectAds(html: string): string {
+  // AdSense/AdMob web banner (funciona en iframe y web)
+  const adClient = "ca-pub-4903263409458961";
+  const adSlot   = "8825147276";
+
   // Banner AdMob visual en el footer
   const banner = `
   <!-- AdMob Banner -->
@@ -1592,6 +1597,9 @@ export default function Builder() {
   const [isFeedback, setIsFeedback] = useState(false);
   const [appName, setAppName] = useState("");
 
+  // AdMob banner nativo (solo APK)
+  useEffect(() => { showBanner(); }, []);
+
   useEffect(() => {
     const handler = () => setIsMobile(window.innerWidth < 768);
     window.addEventListener("resize", handler);
@@ -1751,6 +1759,7 @@ IMPORTANTE: Genera datos de ejemplo MUY específicos para esta app (nombres, val
       setStep("save", "done");
       setFinalized(true);
       addLog("🎉 ¡App lista para publicar!");
+      showInterstitial(); // AdMob intersticial al finalizar;
 
     } catch (err: any) {
       addLog(`❌ Error: ${err.message}`);

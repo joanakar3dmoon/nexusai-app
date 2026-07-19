@@ -15,6 +15,10 @@ const config: CapacitorConfig = {
     },
   },
   plugins: {
+    AdMob: {
+      appId: 'ca-app-pub-4903263409458961~5751005760',
+      isTesting: false,
+    },
     SplashScreen: {
       launchShowDuration: 2000,
       backgroundColor: '#080b14',

@@ -1,3 +1,4 @@
+import { showBanner } from "@/lib/admob";
 import { motion } from "motion/react";
 import {
   BrainCircuit, Bot, Code2, Settings, CreditCard, LogOut, Menu, X,
