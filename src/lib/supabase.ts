@@ -18,3 +18,11 @@ export async function dbDeleteApp(id:string):Promise<boolean>{const{error}=await
 export async function dbGetWithdrawals():Promise<DBWithdrawal[]>{const{data,error}=await supabaseAdmin.from("withdrawals").select("*").order("created_at",{ascending:false});if(error)console.error("[SB]",error.message);return data||[];}
 export async function dbSaveWithdrawal(w:Omit<DBWithdrawal,"created_at">):Promise<DBWithdrawal|null>{const{data,error}=await supabaseAdmin.from("withdrawals").insert(w).select().maybeSingle();if(error)console.error("[SB] dbSaveWithdrawal:",error.message);return data||null;}
 export async function dbUpdateWithdrawal(id:string,up:Partial<DBWithdrawal>):Promise<boolean>{const{error}=await supabaseAdmin.from("withdrawals").update(up).eq("id",id);return!error;}
+
+export interface DBSubscription { id:string;user_id:string;user_email:string;plan:string;amount:number;status:"active"|"cancelled"|"pending";paypal_ref?:string;created_at?:string; }
+export interface DBRevenue { id:string;source:"admob"|"amazon"|"subscription";amount:number;note?:string;created_at?:string; }
+export async function dbGetSubscriptions():Promise<DBSubscription[]>{const{data,error}=await supabaseAdmin.from("subscriptions").select("*").order("created_at",{ascending:false});if(error)console.error("[SB]",error.message);return data||[];}
+export async function dbSaveSubscription(s:Omit<DBSubscription,"created_at">):Promise<DBSubscription|null>{const{data,error}=await supabaseAdmin.from("subscriptions").insert(s).select().maybeSingle();if(error)console.error("[SB]",error.message);return data||null;}
+export async function dbGetRevenue():Promise<DBRevenue[]>{const{data,error}=await supabaseAdmin.from("revenue").select("*").order("created_at",{ascending:false});if(error)console.error("[SB]",error.message);return data||[];}
+export async function dbAddRevenue(r:Omit<DBRevenue,"id"|"created_at">):Promise<boolean>{const{error}=await supabaseAdmin.from("revenue").insert({...r,id:crypto.randomUUID()});return!error;}
+export async function dbGetTotalRevenue():Promise<number>{const{data}=await supabaseAdmin.from("revenue").select("amount");return(data||[]).reduce((a:number,r:any)=>a+(r.amount||0),0);}

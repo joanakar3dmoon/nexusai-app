@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/lib/auth";
-import { dbGetUsers, dbGetApps, dbGetWithdrawals, dbUpdateUser, dbDeleteApp, dbSaveApp, dbSaveWithdrawal, dbUpdateWithdrawal } from "@/lib/supabase";
+import { dbGetUsers, dbGetApps, dbGetWithdrawals, dbUpdateUser, dbDeleteApp, dbSaveApp, dbSaveWithdrawal, dbUpdateWithdrawal, dbGetSubscriptions, dbGetRevenue, dbAddRevenue, dbGetTotalRevenue } from "@/lib/supabase";
 import { useNavigate } from "react-router-dom";
 
 // ──────────────────────────────────────────────
@@ -48,7 +48,7 @@ interface Withdrawal {
   note?: string;
 }
 
-type Tab = "dashboard" | "users" | "apps" | "withdrawals" | "stats" | "bot" | "creator";
+type Tab = "dashboard" | "users" | "apps" | "withdrawals" | "stats" | "bot" | "creator" | "revenue";
 
 // ──────────────────────────────────────────────
 // Helpers
@@ -618,6 +618,11 @@ export default function Admin() {
   const [users, setUsers] = useState<StoredUser[]>([]);
   const [apps, setApps] = useState<StoredApp[]>([]);
   const [withdrawals, setWithdrawals] = useState<Withdrawal[]>([]);
+  const [subscriptions, setSubscriptions] = useState<any[]>([]);
+  const [revenueLog, setRevenueLog] = useState<any[]>([]);
+  const [totalRevReal, setTotalRevReal] = useState(0);
+  const [reinvestAmount, setReinvestAmount] = useState("");
+  const [reinvestMsg, setReinvestMsg] = useState("");
   const [approvedNote, setApprovedNote] = useState<string | null>(null);
 
   // ── Guard ──────────────────────────────────
@@ -687,6 +692,21 @@ export default function Admin() {
   const totalMonth = admobMonth + amazonMonth;
   const totalRevenue = ADMOB_DATA.reduce((a, b) => a + b, 0) + AMAZON_DATA.reduce((a, b) => a + b, 0);
   const pendingCount = withdrawals.filter((w) => w.status === "pending").length;
+  const totalSubRevenue = subscriptions.filter(s => s.status === "active").length * 9.99;
+  
+  const handleReinvest = async () => {
+    const amt = parseFloat(reinvestAmount);
+    if (!amt || amt <= 0) { setReinvestMsg("Introduce un importe válido"); return; }
+    const ok = await dbAddRevenue({ source: "subscription", amount: -amt, note: "Reinversión en créditos" });
+    if (ok) {
+      setReinvestMsg(\`✅ €\${amt} reinvertidos en créditos del sistema\`);
+      setReinvestAmount("");
+      const total = await dbGetTotalRevenue();
+      setTotalRevReal(total);
+    } else {
+      setReinvestMsg("Error al registrar la reinversión");
+    }
+  };
   const bannedCount = users.filter((u) => u.banned).length;
 
   // ── Bot Reinversión IA ──────────────────────
@@ -868,6 +888,7 @@ INSTRUCCIONES CLAVE:
     { id: "users", icon: Users, label: "Usuarios", badge: bannedCount || undefined },
     { id: "apps", icon: Bot, label: "Apps", badge: apps.length || undefined },
     { id: "withdrawals", icon: Wallet, label: "Retiros", badge: pendingCount || undefined },
+      { id: "revenue", icon: TrendingUp, label: "Ingresos" },
     { id: "stats", icon: Activity, label: "Estadísticas" },
     { id: "bot", icon: Bot, label: "Bot Reinversión 💹" },
     { id: "creator", icon: Cpu, label: "🛠️ Crear App" },
@@ -1611,6 +1632,111 @@ INSTRUCCIONES CLAVE:
           )}
 
           {/* TAB: Crear App — Playground + Generador incrustado */}
+          
+          {/* ===== INGRESOS REALES ===== */}
+          {activeTab === "revenue" && (
+            <motion.div key="revenue" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
+              <h2 className="text-lg font-bold flex items-center gap-2"><TrendingUp className="w-5 h-5 text-green-400" /> Panel de Ingresos</h2>
+
+              {/* Métricas principales */}
+              <div className="grid grid-cols-2 gap-3">
+                <Card className="border-green-500/20 bg-green-500/5">
+                  <CardContent className="p-4 text-center">
+                    <p className="text-xs text-muted-foreground">Total acumulado</p>
+                    <p className="text-2xl font-bold text-green-400">€{totalRevReal.toFixed(2)}</p>
+                    <p className="text-[10px] text-muted-foreground mt-1">Real desde Supabase</p>
+                  </CardContent>
+                </Card>
+                <Card className="border-yellow-500/20 bg-yellow-500/5">
+                  <CardContent className="p-4 text-center">
+                    <p className="text-xs text-muted-foreground">Suscripciones activas</p>
+                    <p className="text-2xl font-bold text-yellow-400">{subscriptions.filter(s=>s.status==="active").length}</p>
+                    <p className="text-[10px] text-muted-foreground mt-1">€{totalSubRevenue.toFixed(2)}/mes</p>
+                  </CardContent>
+                </Card>
+                <Card className="border-purple-500/20 bg-purple-500/5">
+                  <CardContent className="p-4 text-center">
+                    <p className="text-xs text-muted-foreground">Retiros aprobados</p>
+                    <p className="text-2xl font-bold text-purple-400">€{withdrawals.filter(w=>w.status==="approved").reduce((a,w)=>a+w.amount,0).toFixed(2)}</p>
+                    <p className="text-[10px] text-muted-foreground mt-1">Total retirado</p>
+                  </CardContent>
+                </Card>
+                <Card className="border-blue-500/20 bg-blue-500/5">
+                  <CardContent className="p-4 text-center">
+                    <p className="text-xs text-muted-foreground">Balance disponible</p>
+                    <p className="text-2xl font-bold text-blue-400">€{Math.max(0, totalRevReal - withdrawals.filter(w=>w.status==="approved").reduce((a,w)=>a+w.amount,0)).toFixed(2)}</p>
+                    <p className="text-[10px] text-muted-foreground mt-1">Para retirar o reinvertir</p>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Reinvertir */}
+              <Card className="border-primary/20">
+                <CardHeader><CardTitle className="text-sm flex items-center gap-2"><RefreshCw className="w-4 h-4 text-primary" /> Reinvertir en la plataforma</CardTitle></CardHeader>
+                <CardContent className="space-y-3">
+                  <p className="text-xs text-muted-foreground">Reinvierte ingresos en créditos de IA para los usuarios o en mejoras de la plataforma.</p>
+                  <div className="flex gap-2">
+                    <input
+                      type="number" placeholder="Importe €" value={reinvestAmount}
+                      onChange={e => setReinvestAmount(e.target.value)}
+                      className="flex-1 bg-background border border-border rounded-lg px-3 py-2 text-sm"
+                    />
+                    <Button size="sm" className="cursor-pointer" onClick={handleReinvest}>Reinvertir</Button>
+                  </div>
+                  {reinvestMsg && <p className="text-xs text-green-400">{reinvestMsg}</p>}
+                </CardContent>
+              </Card>
+
+              {/* Historial de ingresos */}
+              <Card>
+                <CardHeader><CardTitle className="text-sm">📋 Historial de ingresos</CardTitle></CardHeader>
+                <CardContent>
+                  {revenueLog.length === 0 ? (
+                    <p className="text-xs text-muted-foreground text-center py-4">Aún no hay ingresos registrados. Los ingresos por suscripciones aparecerán aquí automáticamente.</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {revenueLog.slice(0, 20).map((r: any) => (
+                        <div key={r.id} className="flex items-center justify-between py-2 border-b border-border/30 text-xs">
+                          <div>
+                            <span className="font-medium capitalize">{r.source}</span>
+                            {r.note && <span className="text-muted-foreground ml-2">{r.note}</span>}
+                          </div>
+                          <span className={r.amount >= 0 ? "text-green-400 font-bold" : "text-red-400 font-bold"}>
+                            {r.amount >= 0 ? "+" : ""}€{Math.abs(r.amount).toFixed(2)}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Suscripciones activas */}
+              <Card>
+                <CardHeader><CardTitle className="text-sm">💳 Suscripciones activas</CardTitle></CardHeader>
+                <CardContent>
+                  {subscriptions.length === 0 ? (
+                    <p className="text-xs text-muted-foreground text-center py-4">Aún no hay suscriptores Premium.</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {subscriptions.map((s: any) => (
+                        <div key={s.id} className="flex items-center justify-between py-2 border-b border-border/30 text-xs">
+                          <div>
+                            <p className="font-medium">{s.user_email}</p>
+                            <p className="text-muted-foreground">{s.plan} · {new Date(s.created_at).toLocaleDateString()}</p>
+                          </div>
+                          <Badge className={s.status === "active" ? "bg-green-500/10 text-green-400 border-green-500/20" : "bg-red-500/10 text-red-400"}>
+                            {s.status}
+                          </Badge>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </motion.div>
+          )}
+
           {activeTab === "creator" && (
             <motion.div key="creator" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
               <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
