@@ -40,7 +40,7 @@ async function loadStoredAppsAsync(): Promise<AppRecord[]> {
     const { data } = await _sb.from("apps").select("*").order("created_at", { ascending: false });
     return (data || []).map((r: any) => ({
       id: r.id,
-      title: r.title || r.name || "App",
+      title: r.name || r.title || "App",
       prompt: r.prompt || r.description || "",
       html: r.html_code || r.source_code || r.html || "",
       source_code: r.html_code || r.source_code || r.html || "",
