@@ -589,17 +589,17 @@ export default function Dashboard() {
                         </div>
                         <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{app.description}</p>
                         <div className="flex items-center gap-3 mt-2 text-[10px] text-muted-foreground flex-wrap">
-                          <span>📅 {new Date(app.created_at).toLocaleDateString()}</span>
+                          <span>📅 {new Date(app.createdAt || app.created_at).toLocaleDateString()}</span>
                           <span className="text-emerald-400">💰 AdMob + Amazon integrado</span>
                         </div>
                       </div>
                     </div>
                     <div className="flex gap-2 mt-3 flex-wrap">
-                        <Button variant="outline" size="sm" className="cursor-pointer text-xs" onClick={() => setPreviewCode(app.source_code || "<p style='color:white;padding:20px'>Sin código guardado. Regenera la app.</p>")}>
+                        <Button variant="outline" size="sm" className="cursor-pointer text-xs" onClick={() => setPreviewCode(app.html || app.source_code || "<p style='color:white;padding:20px'>Sin código guardado. Regenera la app.</p>")}>
                           <Globe className="w-3 h-3 mr-1" /> Ver
                         </Button>
-                        {app.source_code && (
-                          <Button variant="outline" size="sm" className="cursor-pointer text-xs" onClick={() => setSelectedCode(app.source_code!)}>
+                        {(app.html || app.source_code) && (
+                          <Button variant="outline" size="sm" className="cursor-pointer text-xs" onClick={() => setSelectedCode(app.html || app.source_code)}>
                             <Code2 className="w-3 h-3 mr-1" /> Código
                           </Button>
                         )}
