@@ -18,21 +18,18 @@ jobs:
   migrate:
     runs-on: ubuntu-latest
     steps:
-      - name: Create Supabase tables
+      - uses: actions/checkout@v4
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+      - name: Run migration
         env:
-          SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
-          SUPABASE_SERVICE_KEY: ${{ secrets.VITE_SUPABASE_SECRET_KEY }}
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
         run: |
-          node -e "
-          const https = require('https');
-          const url = new URL(process.env.SUPABASE_URL + '/rest/v1/rpc/nexus_migrate');
-          const key = process.env.SUPABASE_SERVICE_KEY;
-          const req = https.request(url, {method:'POST', headers:{'apikey':key,'Authorization':'Bearer '+key,'Content-Type':'application/json'}}, r => {
-            let d=''; r.on('data',c=>d+=c); r.on('end',()=>console.log('migrate:',r.statusCode, d.slice(0,100)));
-          });
-          req.on('error', e => console.log('migrate skip:', e.message));
-          req.end('{}');
-          " || true
+          supabase db push --project-ref tolzqxflecqbjdefohom --password "$SUPABASE_DB_PASSWORD" || echo "Migration skipped"
+        continue-on-error: true
 
   build:
     runs-on: ubuntu-latest
