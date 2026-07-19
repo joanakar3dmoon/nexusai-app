@@ -196,21 +196,14 @@ const AMAZON_PRODUCTS = [
   { name: "Webcam HD",             url: "https://www.amazon.es/s?k=webcam+hd&tag=r3dm01-21",            img: "📷" },
 ];
 
-// Componente para preview seguro usando blob URL
+// Componente para preview seguro usando srcdoc (compatible móvil/iOS)
 function BlobPreview({ code }: { code: string }) {
-  const [url, setUrl] = React.useState<string>("");
-  React.useEffect(() => {
-    const blob = new Blob([code], { type: "text/html" });
-    const u = URL.createObjectURL(blob);
-    setUrl(u);
-    return () => URL.revokeObjectURL(u);
-  }, [code]);
-  if (!url) return null;
   return (
     <iframe
-      src={url}
+      srcDoc={code}
       className="flex-1 w-full border-0"
       title="Vista previa de la app"
+      sandbox="allow-scripts allow-same-origin allow-popups"
     />
   );
 }
