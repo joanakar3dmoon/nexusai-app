@@ -559,9 +559,6 @@ export default function Dashboard() {
                           <span className="text-emerald-400">💰 AdMob + Amazon integrado</span>
                         </div>
                       </div>
-                      <button onClick={() => deleteApp(app.id)} className="text-muted-foreground/40 hover:text-red-400 cursor-pointer ml-2 shrink-0">
-                        <Trash2 className="w-4 h-4" />
-                      </button>
                     </div>
                     <div className="flex gap-2 mt-3 flex-wrap">
                         <Button variant="outline" size="sm" className="cursor-pointer text-xs" onClick={() => setPreviewCode(app.source_code || "<p style='color:white;padding:20px'>Sin código guardado. Regenera la app.</p>")}>
