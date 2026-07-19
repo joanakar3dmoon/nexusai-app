@@ -57,11 +57,11 @@ const LLM_PROVIDERS = [
   { id: "groq",     url: "https://api.groq.com/openai/v1/chat/completions", model: "llama-3.1-8b-instant", keyEnv: "free" },
   { id: "deepseek", url: "https://api.groq.com/openai/v1/chat/completions", model: "llama-3.1-8b-instant", keyEnv: "free" },
   { id: "qwen",     url: "https://api.groq.com/openai/v1/chat/completions", model: "llama-3.1-8b-instant", keyEnv: "free" },
-  { id: "mixtral",  url: "https://api.groq.com/openai/v1/chat/completions", model: "deepseek-v4-flash", keyEnv: "free" },
-  { id: "freellm",  url: "https://api.groq.com/openai/v1/chat/completions",     model: "deepseek-v4-flash",              keyEnv: "" },
+  { id: "mixtral",  url: "https://api.groq.com/openai/v1/chat/completions", model: "llama-3.3-70b-versatile", keyEnv: "free" },
+  { id: "freellm",  url: "https://api.groq.com/openai/v1/chat/completions",     model: "llama-3.3-70b-versatile",              keyEnv: "" },
 ];
 
-const GROQ_KEY = "free";
+const GROQ_KEY = import.meta.env.VITE_GROQ_KEY || "";
 
 function generateFallbackApp(prompt: string): string {
   const title = prompt.length > 40 ? prompt.substring(0, 40) + "..." : prompt;
