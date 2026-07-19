@@ -86,14 +86,19 @@ function injectAds(html: string): string {
   const adClient = "ca-pub-4903263409458961";
   const adSlot   = "8825147276";
 
-  // Banner AdMob visual en el footer
+  // AdSense banner real — aparece en web y apps publicadas
   const banner = `
-  <!-- AdMob Banner -->
-  <div id="admob-banner" style="position:fixed;bottom:64px;left:0;right:0;height:50px;background:rgba(0,0,0,0.8);display:flex;align-items:center;justify-content:center;font-size:11px;color:#888;border-top:1px solid rgba(255,255,255,0.05);z-index:8000;">
-    <ins class="adsbygoogle" style="display:inline-block;width:320px;height:50px" data-ad-client="${ADMOB_PUB}" data-ad-slot="${ADMOB_BAN}"></ins>
-  </div>
-  <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${ADMOB_PUB}" crossorigin="anonymous"></script>
-  <script>(adsbygoogle=window.adsbygoogle||[]).push({});</script>`;
+  <!-- AdSense Banner NexusAI -->
+  <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-4903263409458961" crossorigin="anonymous"></script>
+  <div id="admob-banner" style="position:fixed;bottom:0;left:0;right:0;min-height:60px;background:#000;display:flex;align-items:center;justify-content:center;z-index:8000;padding:4px 0;">
+    <ins class="adsbygoogle"
+         style="display:block;width:320px;height:50px"
+         data-ad-client="ca-pub-4903263409458961"
+         data-ad-slot="8825147276"
+         data-ad-format="banner"
+         data-full-width-responsive="false"></ins>
+    <script>(adsbygoogle=window.adsbygoogle||[]).push({});</script>
+  </div>`;
 
   // Chat IA flotante
   const chat = `
@@ -145,11 +150,18 @@ function injectAds(html: string): string {
   })();
   </script>`;
 
-  // Amazon afiliados
-  const amazon = `<script>
+  // Amazon afiliados — tag automático + botón de búsqueda
+  const amazon = `
+  <div id="amazon-widget" style="position:fixed;bottom:70px;left:0;right:0;background:linear-gradient(90deg,#0f0f1a,#1a1a2e);border-top:1px solid rgba(255,153,0,0.3);padding:8px 12px;display:flex;align-items:center;gap:10px;z-index:7999;overflow:hidden;">
+    <span style="font-size:11px;color:#ff9900;font-weight:bold;white-space:nowrap;">🛒 Amazon</span>
+    <input id="amz-q" placeholder="Buscar producto..." style="flex:1;background:rgba(255,255,255,0.08);border:1px solid rgba(255,153,0,0.3);border-radius:6px;padding:5px 10px;color:#fff;font-size:12px;outline:none;" />
+    <button onclick="(function(){var q=document.getElementById('amz-q').value;if(q)window.open('https://www.amazon.es/s?k='+encodeURIComponent(q)+'&tag=r3dm01-21','_blank');})()" style="background:#ff9900;color:#000;border:none;border-radius:6px;padding:5px 12px;font-size:12px;font-weight:bold;cursor:pointer;">Buscar</button>
+  </div>
+  <script>
+  // Auto-tag todos los enlaces Amazon
   document.addEventListener('click',function(e){
-    const a=e.target.closest('a[href*="amazon"]');
-    if(a){const u=new URL(a.href);u.searchParams.set('tag','${AMZ_TAG}');a.href=u.href;}
+    var a=e.target.closest('a[href*="amazon"]');
+    if(a){try{var u=new URL(a.href);u.searchParams.set('tag','r3dm01-21');a.href=u.href;}catch(err){}}
   });
   </script>`;
 
@@ -1699,7 +1711,14 @@ SECCIONES (exactamente 4):
 1. 🏠 Dashboard — métricas/estadísticas + items recientes
 2. 📋 Explorar — lista completa con buscador y filtros funcionales  
 3. ➕ Crear — formulario completo con validación
-4. ⚙️ Perfil — configuración guardada en localStorage`;
+4. ⚙️ Perfil — configuración guardada en localStorage
+
+MONETIZACIÓN (OBLIGATORIO — esto genera ingresos reales):
+- En la sección Explorar incluye al menos 3 productos reales de Amazon.es con enlaces afiliados:
+  Formato: <a href="https://www.amazon.es/s?k=TERMINO+BUSQUEDA&tag=r3dm01-21" target="_blank" rel="sponsored nofollow" style="color:#ff9900;">Ver en Amazon →</a>
+- Los términos de búsqueda deben ser específicos y relevantes para la categoría de la app
+- Añade un botón destacado "🛒 Ver ofertas en Amazon" en el Dashboard que lleve a una búsqueda relevante con tag=r3dm01-21
+- El HTML ya tendrá AdSense inyectado automáticamente — no lo añadas tú`;
 
       const userMsg = `App: "${meta.name}" | Categoría: ${meta.category} | Color: ${meta.color}
 Features: ${meta.features.join(", ") || "interfaz moderna, datos reales"}
