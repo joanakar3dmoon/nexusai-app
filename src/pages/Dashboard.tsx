@@ -348,8 +348,28 @@ export default function Dashboard() {
   };
 
   const deleteApp = async (id: string) => {
-    await _sb.from("apps").delete().eq("id", id).catch(console.error);
-    setApps(prev => prev.filter(a => a.id !== id));
+    if (!window.confirm("¿Eliminar esta app?")) return;
+    try {
+      const res = await fetch(
+        `https://tolzqxflecqbjdefohom.supabase.co/rest/v1/apps?id=eq.${id}`,
+        {
+          method: "DELETE",
+          headers: {
+            "apikey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRvbHpxeGZsZWNxYmpkZWZvaG9tIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4NDEwODA3MCwiZXhwIjoyMDk5Njg0MDcwfQ.FaTcZpS4tVKJl8rIP-Vfv0nMub2bnNJNFFo9t1w7JfU",
+            "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRvbHpxeGZsZWNxYmpkZWZvaG9tIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4NDEwODA3MCwiZXhwIjoyMDk5Njg0MDcwfQ.FaTcZpS4tVKJl8rIP-Vfv0nMub2bnNJNFFo9t1w7JfU",
+            "Content-Type": "application/json",
+            "Prefer": "return=minimal"
+          }
+        }
+      );
+      if (res.ok || res.status === 204) {
+        setApps(prev => prev.filter(a => a.id !== id));
+      } else {
+        alert("Error al eliminar. Intenta de nuevo.");
+      }
+    } catch (e) {
+      alert("Error de conexión.");
+    }
   };
 
   const downloadApp = (app: AppRecord) => {
@@ -575,7 +595,7 @@ export default function Dashboard() {
                         <Button variant="outline" size="sm" className="cursor-pointer text-xs" onClick={() => navigate("/builder")}>
                           <Zap className="w-3 h-3 mr-1" /> Regenerar
                         </Button>
-                        <Button variant="outline" size="sm" className="cursor-pointer text-xs border-red-500/30 text-red-400 hover:bg-red-500/10" onClick={() => { if(window.confirm("Eliminar esta app?")) deleteApp(app.id); }}>
+                        <Button variant="outline" size="sm" className="cursor-pointer text-xs border-red-500/30 text-red-400 hover:bg-red-500/10" onClick={() => deleteApp(app.id)}>
                           <Trash2 className="w-3 h-3 mr-1" /> Eliminar
                         </Button>
                       </div>
