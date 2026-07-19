@@ -597,18 +597,25 @@ export default function Dashboard() {
                 </CardHeader>
                 <CardContent className="space-y-3">
                   <p className="text-sm text-muted-foreground">
-                    Todas las apps que generas incluyen espacios para anuncios AdMob. Para activarlos:
+                    ✅ Tu cuenta AdMob está integrada en todas las apps generadas.
                   </p>
-                  <ol className="text-xs text-muted-foreground space-y-2 list-decimal list-inside">
-                    <li>Crea una cuenta en <a href="https://admob.google.com" target="_blank" rel="noopener noreferrer" className="text-yellow-400 underline">admob.google.com</a></li>
-                    <li>Crea una nueva app y obtén tu App ID y Ad Unit ID</li>
-                    <li>Pega tus IDs en la app generada (busca <code className="bg-black/30 px-1 rounded">admob-banner</code>)</li>
-                  </ol>
-                  <div className="p-3 rounded-lg bg-yellow-500/5 border border-yellow-500/20 text-xs text-yellow-300">
-                    💡 Con 1.000 visitas/día puedes ganar entre 0,50€ y 3€/día en anuncios display.
+                  <div className="space-y-2 text-xs">
+                    <div className="p-3 rounded-lg bg-yellow-500/5 border border-yellow-500/20 space-y-1">
+                      <p className="text-yellow-300 font-semibold mb-2">📱 Nexusia — IDs activos</p>
+                      <div className="flex justify-between"><span className="text-muted-foreground">App ID:</span><code className="text-yellow-200 bg-black/30 px-1 rounded text-[10px]">ca-app-pub-4903263409458961~5751005760</code></div>
+                      <div className="flex justify-between"><span className="text-muted-foreground">Banner:</span><code className="text-yellow-200 bg-black/30 px-1 rounded text-[10px]">...8825147276</code></div>
+                      <div className="flex justify-between"><span className="text-muted-foreground">Intersticial:</span><code className="text-yellow-200 bg-black/30 px-1 rounded text-[10px]">...4622591073</code></div>
+                      <div className="flex justify-between"><span className="text-muted-foreground">Int. Bonificado:</span><code className="text-yellow-200 bg-black/30 px-1 rounded text-[10px]">...1824624651</code></div>
+                      <div className="flex justify-between"><span className="text-muted-foreground">Carga de app:</span><code className="text-yellow-200 bg-black/30 px-1 rounded text-[10px]">...8054991080</code></div>
+                      <div className="flex justify-between"><span className="text-muted-foreground">Bonificado:</span><code className="text-yellow-200 bg-black/30 px-1 rounded text-[10px]">...3980014703</code></div>
+                      <div className="flex justify-between"><span className="text-muted-foreground">Nativo avanzado:</span><code className="text-yellow-200 bg-black/30 px-1 rounded text-[10px]">...2202908920</code></div>
+                    </div>
+                    <div className="p-3 rounded-lg bg-emerald-500/5 border border-emerald-500/20 text-emerald-300">
+                      💰 Con 1.000 visitas/día estimas entre 0,50€ y 3€/día. Todas tus apps ya llevan estos IDs integrados.
+                    </div>
                   </div>
                   <Button size="sm" className="cursor-pointer gap-2 bg-yellow-600 hover:bg-yellow-500 text-black" onClick={() => window.open("https://admob.google.com", "_blank")}>
-                    <ExternalLink className="w-3.5 h-3.5" /> Ir a AdMob
+                    <ExternalLink className="w-3.5 h-3.5" /> Ver panel AdMob
                   </Button>
                 </CardContent>
               </Card>
