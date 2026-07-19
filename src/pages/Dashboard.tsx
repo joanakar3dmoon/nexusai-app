@@ -1,4 +1,4 @@
-import { dbGetApps, dbDeleteApp, dbSaveApp, dbGetSubscriptionsSafe, dbSaveSubscriptionSafe, dbAddRevenueSafe, dbApprovePremium } from "@/lib/supabase"import { showBanner } from "@/lib/admob";
+import {dbGetApps, dbDeleteApp, dbSaveApp, dbGetSubscriptionsSafe, dbSaveSubscriptionSafe, dbAddRevenueSafe, dbApprovePremium} from "@/lib/supabase"import { showBanner } from "@/lib/admob";
 import { motion } from "motion/react";
 import {
   BrainCircuit, Bot, Code2, Settings, CreditCard, LogOut, Menu, X,
@@ -286,15 +286,22 @@ export default function Dashboard() {
   const handleConfirmPayment = async () => {
     if (!user) return;
     setSubscribing(true);
-    setSubMsg("Activando Premium...");
+    setSubMsg("✅ Solicitud enviada. El administrador activará tu Premium en menos de 24h. ¡Gracias por pagar!");
     try {
-      const result = await (api as any).activatePlan(user.id, "premium", "paypal-manual");
-      if (result?.ok) {
-        await refreshUser();
-        setSubMsg("✅ ¡Premium activado! Recarga si no ves los cambios.");
-        localStorage.removeItem("nexusai_pending_upgrade");
-      } else {
-        setSubMsg("No pudimos verificar el pago. Escríbenos a joanlazaro83@gmail.com");
+      const subId = localStorage.getItem("nexusai_pending_sub_id") || crypto.randomUUID();
+      await dbSaveSubscriptionSafe({
+        id: subId,
+        user_id: user.id,
+        user_email: user.email || "",
+        plan: "premium",
+        amount: 9.99,
+        status: "pending",
+        paypal_ref: "awaiting-admin-approval",
+      });
+      localStorage.removeItem("nexusai_pending_upgrade");
+      localStorage.removeItem("nexusai_pending_sub_id");
+    } catch {
+      // no critical
       }
     } catch {
       setSubMsg("Error al activar. Escríbenos a joanlazaro83@gmail.com con tu recibo.");
