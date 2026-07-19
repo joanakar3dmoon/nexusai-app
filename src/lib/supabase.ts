@@ -26,3 +26,57 @@ export async function dbSaveSubscription(s:Omit<DBSubscription,"created_at">):Pr
 export async function dbGetRevenue():Promise<DBRevenue[]>{const{data,error}=await supabaseAdmin.from("revenue").select("*").order("created_at",{ascending:false});if(error)console.error("[SB]",error.message);return data||[];}
 export async function dbAddRevenue(r:Omit<DBRevenue,"id"|"created_at">):Promise<boolean>{const{error}=await supabaseAdmin.from("revenue").insert({...r,id:crypto.randomUUID()});return!error;}
 export async function dbGetTotalRevenue():Promise<number>{const{data}=await supabaseAdmin.from("revenue").select("amount");return(data||[]).reduce((a:number,r:any)=>a+(r.amount||0),0);}
+
+// ── Auto-migración: crea tablas si no existen ──────────────────────────────
+export async function runMigrations(): Promise<void> {
+  try {
+    // Verificar si existe tabla subscriptions intentando leer
+    const { error: e1 } = await supabaseAdmin.from("subscriptions").select("id").limit(1);
+    if (e1 && e1.code === "42P01") {
+      // Tabla no existe — crear via SQL RPC
+      await supabaseAdmin.rpc("create_subscriptions_table").catch(() => {});
+    }
+    const { error: e2 } = await supabaseAdmin.from("revenue").select("id").limit(1);
+    if (e2 && e2.code === "42P01") {
+      await supabaseAdmin.rpc("create_revenue_table").catch(() => {});
+    }
+  } catch {}
+}
+
+// Versión robusta de dbGetSubscriptions que no falla si no existe la tabla
+export async function dbGetSubscriptionsSafe(): Promise<DBSubscription[]> {
+  try {
+    const { data, error } = await supabaseAdmin.from("subscriptions").select("*").order("created_at", { ascending: false });
+    if (error) return [];
+    return data || [];
+  } catch { return []; }
+}
+
+export async function dbGetRevenueSafe(): Promise<DBRevenue[]> {
+  try {
+    const { data, error } = await supabaseAdmin.from("revenue").select("*").order("created_at", { ascending: false });
+    if (error) return [];
+    return data || [];
+  } catch { return []; }
+}
+
+export async function dbGetTotalRevenueSafe(): Promise<number> {
+  try {
+    const { data } = await supabaseAdmin.from("revenue").select("amount");
+    return (data || []).reduce((a: number, r: any) => a + (r.amount || 0), 0);
+  } catch { return 0; }
+}
+
+export async function dbAddRevenueSafe(r: Omit<DBRevenue, "id" | "created_at">): Promise<boolean> {
+  try {
+    const { error } = await supabaseAdmin.from("revenue").insert({ ...r, id: crypto.randomUUID() });
+    return !error;
+  } catch { return false; }
+}
+
+export async function dbSaveSubscriptionSafe(s: Omit<DBSubscription, "created_at">): Promise<boolean> {
+  try {
+    const { error } = await supabaseAdmin.from("subscriptions").insert(s);
+    return !error;
+  } catch { return false; }
+}

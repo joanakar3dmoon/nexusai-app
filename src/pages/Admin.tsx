@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/lib/auth";
-import { dbGetUsers, dbGetApps, dbGetWithdrawals, dbUpdateUser, dbDeleteApp, dbSaveApp, dbSaveWithdrawal, dbUpdateWithdrawal, dbGetSubscriptions, dbGetRevenue, dbAddRevenue, dbGetTotalRevenue } from "@/lib/supabase";
+import { dbGetUsers, dbGetApps, dbGetWithdrawals, dbUpdateUser, dbDeleteApp, dbSaveApp, dbSaveWithdrawal, dbUpdateWithdrawal, dbGetSubscriptionsSafe, dbGetRevenueSafe, dbAddRevenueSafe, dbGetTotalRevenueSafe } from "@/lib/supabase";
 import { useNavigate } from "react-router-dom";
 
 // ──────────────────────────────────────────────
@@ -697,11 +697,11 @@ export default function Admin() {
   const handleReinvest = async () => {
     const amt = parseFloat(reinvestAmount);
     if (!amt || amt <= 0) { setReinvestMsg("Introduce un importe válido"); return; }
-    const ok = await dbAddRevenue({ source: "subscription", amount: -amt, note: "Reinversión en créditos" });
+    const ok = await dbAddRevenueSafe({ source: "subscription", amount: -amt, note: "Reinversión en créditos" });
     if (ok) {
       setReinvestMsg(\`✅ €\${amt} reinvertidos en créditos del sistema\`);
       setReinvestAmount("");
-      const total = await dbGetTotalRevenue();
+      const total = await dbGetTotalRevenueSafe();
       setTotalRevReal(total);
     } else {
       setReinvestMsg("Error al registrar la reinversión");
