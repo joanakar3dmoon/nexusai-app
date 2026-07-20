@@ -55,26 +55,14 @@ async function callGroq(system: string, user: string, tokens = 8192): Promise<st
 }
 
 // ── Extrae HTML limpio ───────────────────────────────────────
-function extractHTML(raw: string): string {
-  // Buscar bloque ```html ... ```
-  const fenced = raw.match(/```html\s*\n([\s\S]*?)\n```/i);
+function extractFlutter(raw: string): string {
+  // Buscar bloque ```dart ... ```
+  const fenced = raw.match(/```dart\s*\n([\s\S]*?)\n```/i);
   if (fenced) return fenced[1].trim();
 
-  // Buscar desde <!DOCTYPE hasta </html>
-  const doctype = raw.match(/<!DOCTYPE\s+html[\s\S]*/i);
-  if (doctype) {
-    const block = doctype[0];
-    const end = block.toLowerCase().lastIndexOf("</html>");
-    return end >= 0 ? block.slice(0, end + 7) : block;
-  }
-
-  // Buscar desde <html hasta </html>
-  const htmlTag = raw.match(/<html[\s\S]*/i);
-  if (htmlTag) {
-    const block = htmlTag[0];
-    const end = block.toLowerCase().lastIndexOf("</html>");
-    return end >= 0 ? block.slice(0, end + 7) : block;
-  }
+  // Buscar desde import 'package:flutter...
+  const importMatch = raw.match(/import 'package:flutter\/material\.dart';[\s\S]*/);
+  if (importMatch) return importMatch[0].trim();
 
   // Quitar cualquier fence restante
   return raw.replace(/^```\w*\n?/m, "").replace(/\n?```\s*$/m, "").trim();
@@ -1684,47 +1672,55 @@ export default function Builder() {
       setStep("generate", "running");
       addLog("⚡ Generando app con IA (puede tardar ~30s)...");
 
-      const sysPrompt = `Eres un experto desarrollador web. Genera una app web HTML completa y funcional.
+      const sysPrompt = `Eres un experto desarrollador Flutter. Genera una app Flutter COMPLETA y funcional en un solo archivo main.dart.
 
 REGLAS CRÍTICAS:
-1. Tu respuesta empieza EXACTAMENTE con: <!DOCTYPE html>
-2. Tu respuesta termina EXACTAMENTE con: </html>
-3. CERO texto antes del DOCTYPE. CERO texto o notas después de </html>.
-4. CSS en <style> dentro de <head>. JS en <script> antes de </body>.
-5. Sin archivos externos excepto Google Fonts.
+1. Tu respuesta empieza EXACTAMENTE con: import 'package:flutter/material.dart';
+2. CERO texto antes del import. CERO texto o notas después del código.
+3. Todo el código en un solo archivo main.dart.
+4. NO uses paquetes externos — solo flutter/material.dart y dart:math si es necesario.
+5. El código debe compilar sin errores.
 
-DISEÑO:
-- Dark theme: :root{--bg:#0a0a0f;--card:#111128;--accent:${meta.color};}
-- Mobile-first, Poppins de Google Fonts
-- Bottom navigation con 4 secciones y emojis
-- Tarjetas con border-radius:12px y sombras
+ARQUITECTURA:
+- void main() => runApp(MyApp());
+- MaterialApp con ThemeData dark, useMaterial3: true
+- Color primario: Color(0xFF${meta.color.replace('#','')})
+- BottomNavigationBar con exactamente 4 secciones
+- StatefulWidget principal que gestione el índice activo
 
-CONTENIDO REAL:
-- Al menos 8-10 items de datos de ejemplo inventados pero realistas y específicos
-- Navegación JS entre secciones (show/hide, sin recarga)
-- Formulario funcional que añade items
-- Búsqueda y filtros funcionales
-- localStorage para persistir datos
-- Métricas en el dashboard que se actualicen
+DISEÑO MODERNO (Material 3):
+- Tema oscuro: scaffoldBackgroundColor: Color(0xFF0A0A0F)
+- Cards con ColorScheme.surface, elevation 0, border sutil
+- BorderRadius.circular(16) en todos los elementos
+- Animaciones con AnimatedContainer y AnimatedOpacity
+- FloatingActionButton para crear items
+- AppBar transparente con blur
 
 SECCIONES (exactamente 4):
-1. 🏠 Dashboard — métricas/estadísticas + items recientes
-2. 📋 Explorar — lista completa con buscador y filtros funcionales  
-3. ➕ Crear — formulario completo con validación
-4. ⚙️ Perfil — configuración guardada en localStorage
+1. Dashboard — métricas con Cards, gráfico simple con CustomPaint, items recientes
+2. Explorar — ListView con SearchBar, filtros con FilterChip
+3. Crear — Form con TextFormField, validación, botón submit
+4. Perfil — SwitchListTile para preferencias, ListTile con iconos
 
-MONETIZACIÓN (OBLIGATORIO — esto genera ingresos reales):
-- En la sección Explorar incluye al menos 3 productos reales de Amazon.es con enlaces afiliados:
-  Formato: <a href="https://www.amazon.es/s?k=TERMINO+BUSQUEDA&tag=r3dm01-21" target="_blank" rel="sponsored nofollow" style="color:#ff9900;">Ver en Amazon →</a>
-- Los términos de búsqueda deben ser específicos y relevantes para la categoría de la app
-- Añade un botón destacado "🛒 Ver ofertas en Amazon" en el Dashboard que lleve a una búsqueda relevante con tag=r3dm01-21
-- El HTML ya tendrá AdSense inyectado automáticamente — no lo añadas tú`;
+DATOS:
+- Al menos 8-10 items de ejemplo con datos realistas específicos
+- Usar SharedPreferences simulado con variables de estado
+- Datos que se actualicen al añadir items
 
-      const userMsg = `App: "${meta.name}" | Categoría: ${meta.category} | Color: ${meta.color}
+MONETIZACIÓN (incluir como comentarios en el código):
+// ADMOB: ca-app-pub-4903263409458961/8825147276 (banner)
+// AMAZON: https://www.amazon.es/s?k=CATEGORIA&tag=r3dm01-21
+// Powered by NexusAI — R3DMOON`;
+
+      const userMsg = `App Flutter: "${meta.name}" | Categoría: ${meta.category} | Color accent: ${meta.color}
 Features: ${meta.features.join(", ") || "interfaz moderna, datos reales"}
 Petición del usuario: "${prompt.trim()}"
 
-IMPORTANTE: Genera datos de ejemplo MUY específicos para esta app (nombres, valores, fechas reales). No uses placeholders genéricos.`;
+IMPORTANTE:
+- Genera un main.dart COMPLETO y funcional, listo para compilar
+- Datos de ejemplo MUY específicos para esta app
+- NO uses paquetes externos (solo flutter/material.dart)
+- Código limpio, comentado, con toda la UI implementada`;
 
       let finalHtml = "";
       let usedFallback = false;
@@ -1732,8 +1728,8 @@ IMPORTANTE: Genera datos de ejemplo MUY específicos para esta app (nombres, val
       try {
         const raw = await callGroq(sysPrompt, userMsg, 16000);
         addLog(`📥 Respuesta recibida (${raw.length} chars)`);
-        finalHtml = extractHTML(raw, meta.name, meta.color);
-        if (finalHtml.length < 500) throw new Error("HTML demasiado corto");
+        finalHtml = extractFlutter(raw);
+        if (finalHtml.length < 200) throw new Error("Código Flutter demasiado corto");
         addLog("✅ HTML extraído correctamente");
       } catch (e: any) {
         addLog(`⚠️ IA: ${e.message} — usando app prediseñada`);
@@ -1754,7 +1750,7 @@ IMPORTANTE: Genera datos de ejemplo MUY específicos para esta app (nombres, val
       // Mostrar preview
       setHtml(finalHtml);
       setIsLive(true);
-      addLog("🎨 Preview lista — interactúa con la app");
+      addLog("📱 Código Flutter generado — descarga o compila APK");
 
       // ── 4. Guardar en Supabase ───────────────────────────
       setStep("save", "running");
@@ -1803,7 +1799,7 @@ CERO texto extra. CERO explicaciones.`,
         `HTML ACTUAL:\n${html.slice(0, 12000)}\n\nCAMBIO SOLICITADO:\n${feedback.trim()}`,
         16000
       );
-      const modified = extractHTML(raw, appName);
+      const modified = extractFlutter(raw);
       if (modified.length > 500) {
         setHtml(modified);
         addLog("✅ Cambio aplicado");
@@ -1820,11 +1816,62 @@ CERO texto extra. CERO explicaciones.`,
 
   const downloadHTML = () => {
     if (!html) return;
-    const blob = new Blob([html], { type: "text/html" });
+    // Descargar main.dart
+    const dartBlob = new Blob([html], { type: "text/plain" });
     const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = `${appName || "nexusai-app"}.html`;
+    a.href = URL.createObjectURL(dartBlob);
+    a.download = `${appName || "nexusai-app"}_main.dart`;
     a.click();
+
+    // También generar pubspec.yaml
+    const pubspec = `name: ${(appName || "nexusai_app").toLowerCase().replace(/[^a-z0-9_]/g, "_")}
+description: App generada por NexusAI
+version: 1.0.0+1
+
+environment:
+  sdk: ">=3.0.0 <4.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.2
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+flutter:
+  uses-material-design: true
+`;
+    const pubBlob = new Blob([pubspec], { type: "text/plain" });
+    const b = document.createElement("a");
+    b.href = URL.createObjectURL(pubBlob);
+    b.download = "pubspec.yaml";
+    setTimeout(() => b.click(), 300);
+  };
+
+  const compileAPK = async () => {
+    if (!html) return;
+    const COMPILER_URL = "https://nexusai-flutter-compiler.onrender.com/compile";
+    setLog(l => [...l, "🔨 Enviando código al compilador Flutter..."]);
+    try {
+      const res = await fetch(COMPILER_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code: html, name: appName || "nexusai_app" }),
+        signal: AbortSignal.timeout(300000), // 5 min
+      });
+      if (!res.ok) throw new Error(await res.text());
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${appName || "nexusai-app"}.apk`;
+      a.click();
+      setLog(l => [...l, "✅ APK descargada correctamente"]);
+    } catch (e: any) {
+      setLog(l => [...l, `❌ Error compilando: ${e.message}`]);
+    }
   };
 
   // ── Modal Paywall ────────────────────────────────────────
@@ -1973,7 +2020,7 @@ CERO texto extra. CERO explicaciones.`,
               <div style={{ textAlign: "center", padding: "20px 10px", color: "#444", fontSize: ".82rem" }}>
                 <div style={{ fontSize: "1.8rem", marginBottom: 8 }}>✨</div>
                 <p>Describe tu app y pulsa Construir</p>
-                <p style={{ marginTop: 6, fontSize: ".75rem" }}>La IA generará una app completa con AdMob, Amazon y Chat IA integrados</p>
+                <p style={{ marginTop: 6, fontSize: ".75rem" }}>La IA generará código Flutter nativo listo para compilar a APK</p>
               </div>
             )}
           </div>
@@ -1981,20 +2028,31 @@ CERO texto extra. CERO explicaciones.`,
 
         {/* PREVIEW */}
         <div style={{ flex: 1, display: isMobile && !html ? "none" : "flex", minHeight: isMobile ? 300 : "auto", alignItems: "center", justifyContent: "center", background: "#06060f", overflow: "hidden", padding: viewMode === "mobile" ? 20 : 0 }}>
-          {showCode ? (
-            <pre style={{ width: "100%", height: "100%", overflow: "auto", padding: 20, fontSize: ".75rem", color: "#a78bfa", background: "#06060f", margin: 0, whiteSpace: "pre-wrap", wordBreak: "break-all" }}>
-              {html || "// El código aparecerá aquí"}
-            </pre>
-          ) : (
-            <div style={viewMode === "mobile" ? { width: 375, height: 700, borderRadius: 32, overflow: "hidden", border: "4px solid #1a1a2e", boxShadow: "0 20px 60px rgba(0,0,0,0.7)" } : { width: "100%", height: "100%" }}>
-              <iframe
-                ref={iframeRef}
-                title="NexusAI Preview"
-                style={{ width: "100%", height: "100%", border: "none", borderRadius: viewMode === "mobile" ? 28 : 0, background: "#0a0a0f" }}
-                sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
-              />
-            </div>
-          )}
+          {/* Flutter: siempre mostrar código Dart con syntax highlight básico */}
+          <div style={{ width: "100%", height: "100%", overflow: "auto", background: "#06060f", position: "relative" }}>
+            {html ? (
+              <>
+                <pre style={{ padding: 20, fontSize: ".75rem", color: "#a78bfa", margin: 0, whiteSpace: "pre-wrap", wordBreak: "break-word", fontFamily: "'Fira Code', monospace", lineHeight: 1.6 }}>
+                  {html}
+                </pre>
+                {/* Botones acción Flutter */}
+                <div style={{ position: "sticky", bottom: 0, background: "rgba(6,6,15,0.95)", padding: "12px 16px", borderTop: "1px solid rgba(255,255,255,0.08)", display: "flex", gap: 8, flexWrap: "wrap" }}>
+                  <button onClick={downloadHTML} style={{ flex: 1, padding: "10px 14px", background: "linear-gradient(135deg,#7c3aed,#4f46e5)", border: "none", borderRadius: 8, color: "white", fontWeight: 600, fontSize: ".82rem", cursor: "pointer" }}>
+                    📥 Descargar .dart
+                  </button>
+                  <button onClick={compileAPK} style={{ flex: 1, padding: "10px 14px", background: "linear-gradient(135deg,#059669,#0d9488)", border: "none", borderRadius: 8, color: "white", fontWeight: 600, fontSize: ".82rem", cursor: "pointer" }}>
+                    🤖 Compilar APK
+                  </button>
+                </div>
+              </>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100%", color: "#444", gap: 12 }}>
+                <span style={{ fontSize: "3rem" }}>📱</span>
+                <p style={{ fontSize: ".9rem" }}>Tu app Flutter aparecerá aquí</p>
+                <p style={{ fontSize: ".75rem", color: "#333" }}>Código Dart listo para compilar a APK</p>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
