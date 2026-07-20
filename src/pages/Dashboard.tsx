@@ -1,4 +1,5 @@
-import {dbGetApps, dbDeleteApp, dbSaveApp, dbGetSubscriptionsSafe, dbSaveSubscriptionSafe, dbAddRevenueSafe, dbApprovePremium} from "@/lib/supabase"import { showBanner } from "@/lib/admob";
+import {dbGetApps, dbDeleteApp, dbSaveApp, dbGetSubscriptionsSafe, dbSaveSubscriptionSafe, dbAddRevenueSafe, dbApprovePremium} from "@/lib/supabase";
+const showBanner = () => {}; // admob stub
 import { motion } from "motion/react";
 import {
   BrainCircuit, Bot, Code2, Settings, CreditCard, LogOut, Menu, X,
