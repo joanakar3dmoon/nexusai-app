@@ -1,20 +1,19 @@
 {
-  "name": "NexusAI — r3dm/joan",
+  "name": "NexusAI \u2014 Crea Apps con IA",
   "short_name": "NexusAI",
-  "description": "Plataforma IA gratuita para creadores — by r3dm/joan",
+  "description": "Genera apps con inteligencia artificial gratis en segundos",
   "start_url": "/nexusai-app/",
   "scope": "/nexusai-app/",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#000000",
-  "theme_color": "#000000",
-  "categories": ["productivity", "utilities"],
+  "theme_color": "#7c3aed",
   "icons": [
     {
       "src": "/nexusai-app/icon-192.png",
       "sizes": "192x192",
       "type": "image/png",
-      "purpose": "any"
+      "purpose": "any maskable"
     },
     {
       "src": "/nexusai-app/icon-512.png",
@@ -22,5 +21,10 @@
       "type": "image/png",
       "purpose": "any maskable"
     }
+  ],
+  "categories": [
+    "productivity",
+    "utilities",
+    "developer"
   ]
 }
