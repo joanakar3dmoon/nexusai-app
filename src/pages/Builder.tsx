@@ -1707,9 +1707,15 @@ DATOS:
 - Usar SharedPreferences simulado con variables de estado
 - Datos que se actualicen al añadir items
 
-MONETIZACIÓN (incluir como comentarios en el código):
-// ADMOB: ca-app-pub-4903263409458961/8825147276 (banner)
-// AMAZON: https://www.amazon.es/s?k=CATEGORIA&tag=r3dm01-21
+MONETIZACIÓN REAL (código funcional obligatorio):
+- Importa: import 'package:google_mobile_ads/google_mobile_ads.dart';
+- Inicializa en main(): WidgetsFlutterBinding.ensureInitialized(); await MobileAds.instance.initialize();
+- Banner ID: 'ca-app-pub-4903263409458961/8825147276'
+- Intersticial ID: 'ca-app-pub-4903263409458961/4622591073'
+- Implementa clase _BannerAdWidget con BannerAd, tamaño AdSize.banner
+- Añade _BannerAdWidget() en la parte inferior de CADA pantalla (dentro del Scaffold)
+- Carga InterstitialAd.load() al iniciar, muéstralo al abrir sección 3 (Crear)
+- Reporta cada impresión vía http POST a https://nexusai-backend-z10k.onrender.com/admob/event
 // Powered by NexusAI — R3DMOON`;
 
       const userMsg = `App Flutter: "${meta.name}" | Categoría: ${meta.category} | Color accent: ${meta.color}
