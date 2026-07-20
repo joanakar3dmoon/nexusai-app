@@ -1852,7 +1852,7 @@ flutter:
 
   const compileAPK = async () => {
     if (!html) return;
-    const COMPILER_URL = "https://nexusai-flutter-compiler.onrender.com/compile";
+    const COMPILER_URL = "https://nexusai-backend-z10k.onrender.com/compile";
     setLog(l => [...l, "🔨 Enviando código al compilador Flutter..."]);
     try {
       const res = await fetch(COMPILER_URL, {
@@ -1862,13 +1862,18 @@ flutter:
         signal: AbortSignal.timeout(300000), // 5 min
       });
       if (!res.ok) throw new Error(await res.text());
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `${appName || "nexusai-app"}.apk`;
-      a.click();
-      setLog(l => [...l, "✅ APK descargada correctamente"]);
+      const data = await res.json();
+      if (data.status === "building") {
+        setLog(l => [...l,
+          "⚙️ Compilando APK con GitHub Actions (~3 min)...",
+          "📦 " + data.message,
+          "🔗 Descarga: " + data.check_url
+        ]);
+        // Abrir Actions en nueva pestaña
+        window.open(data.check_url, "_blank");
+      } else {
+        setLog(l => [...l, "✅ " + JSON.stringify(data)]);
+      }
     } catch (e: any) {
       setLog(l => [...l, `❌ Error compilando: ${e.message}`]);
     }
