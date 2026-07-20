@@ -257,6 +257,24 @@ export default function Dashboard() {
 
   const PAYPAL_LINK = "https://www.paypal.com/paypalme/joanlazaro83/9.99";
   const [subscribing, setSubscribing] = React.useState(false);
+  const [installPrompt, setInstallPrompt] = React.useState<any>(null);
+  const [installed, setInstalled] = React.useState(false);
+
+  // PWA Install prompt
+  React.useEffect(() => {
+    const handler = (e: any) => { e.preventDefault(); setInstallPrompt(e); };
+    window.addEventListener("beforeinstallprompt", handler);
+    window.addEventListener("appinstalled", () => setInstalled(true));
+    return () => window.removeEventListener("beforeinstallprompt", handler);
+  }, []);
+
+  const handleInstall = async () => {
+    if (!installPrompt) return;
+    installPrompt.prompt();
+    const { outcome } = await installPrompt.userChoice;
+    if (outcome === "accepted") setInstalled(true);
+    setInstallPrompt(null);
+  };
   const [subMsg, setSubMsg] = React.useState("");
 
   const handleSubscribe = async () => {
@@ -616,7 +634,21 @@ export default function Dashboard() {
                           </Button>
                         )}
                         <Button variant="outline" size="sm" className="cursor-pointer text-xs" onClick={() => downloadApp(app)}>
-                          <Download className="w-3 h-3 mr-1" /> Descargar
+                          <Download className="w-3 h-3 mr-1" /> Descargar</Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="text-xs border-green-500/30 text-green-400 hover:bg-green-500/10"
+                            onClick={() => {
+                              const html = app.html || app.source_code || "";
+                              if (!html) { alert("Sin código para empaquetar"); return; }
+                              // Generar APK via PWABuilder (servicio gratuito de Microsoft)
+                              const encoded = encodeURIComponent("https://joanakar3dmoon.github.io/nexusai-app/");
+                              window.open(`https://www.pwabuilder.com/`, "_blank");
+                              alert("💡 En PWABuilder pega esta URL:\nhttps://joanakar3dmoon.github.io/nexusai-app/\n\nY pulsa \"Package for stores\" para generar APK gratis");
+                            }}
+                          >
+                            <span className="w-3 h-3 mr-1">📦</span> APK
                         </Button>
                         <Button variant="outline" size="sm" className="cursor-pointer text-xs" onClick={() => navigate("/builder")}>
                           <Zap className="w-3 h-3 mr-1" /> Regenerar
