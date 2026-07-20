@@ -1,162 +1,114 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/lib/auth";
 import { motion, AnimatePresence } from "motion/react";
 
-// ── Partículas flotantes ──────────────────────────────────────────────────────
+// ── Partículas ────────────────────────────────────────────────────────────────
 function Particles() {
-  const particles = Array.from({ length: 60 }, (_, i) => ({
+  const pts = Array.from({ length: 50 }, (_, i) => ({
     id: i,
     x: Math.random() * 100,
     y: Math.random() * 100,
-    size: Math.random() * 3 + 1,
-    duration: Math.random() * 20 + 10,
-    delay: Math.random() * 10,
-    opacity: Math.random() * 0.6 + 0.1,
+    s: Math.random() * 2.5 + 0.5,
+    d: Math.random() * 15 + 8,
+    dl: Math.random() * 5,
+    o: Math.random() * 0.5 + 0.1,
   }));
-
   return (
-    <div className="fixed inset-0 overflow-hidden pointer-events-none z-0">
-      {particles.map(p => (
+    <div className="fixed inset-0 pointer-events-none overflow-hidden z-0">
+      {pts.map(p => (
         <motion.div
           key={p.id}
           className="absolute rounded-full bg-red-500"
-          style={{
-            left: `${p.x}%`,
-            top: `${p.y}%`,
-            width: p.size,
-            height: p.size,
-            opacity: p.opacity,
-          }}
-          animate={{
-            y: [0, -120, 0],
-            x: [0, Math.random() * 40 - 20, 0],
-            opacity: [p.opacity, p.opacity * 2, p.opacity],
-          }}
-          transition={{
-            duration: p.duration,
-            delay: p.delay,
-            repeat: Infinity,
-            ease: "easeInOut",
-          }}
+          style={{ left: `${p.x}%`, top: `${p.y}%`, width: p.s, height: p.s, opacity: p.o }}
+          animate={{ y: [0, -30, 0], opacity: [p.o, p.o * 0.3, p.o] }}
+          transition={{ duration: p.d, delay: p.dl, repeat: Infinity, ease: "easeInOut" }}
         />
       ))}
+      {/* Glow orbs */}
+      <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-red-600/8 rounded-full blur-3xl" />
+      <div className="absolute bottom-1/3 right-1/4 w-80 h-80 bg-red-500/6 rounded-full blur-3xl" />
+      <div className="absolute top-3/4 left-1/2 w-64 h-64 bg-red-700/5 rounded-full blur-3xl" />
     </div>
   );
 }
 
-// ── Grid de fondo tipo terminal ───────────────────────────────────────────────
-function GridBackground() {
+// ── Grid bg ───────────────────────────────────────────────────────────────────
+function GridBg() {
   return (
-    <div className="fixed inset-0 z-0 pointer-events-none">
-      <div
-        className="absolute inset-0"
-        style={{
-          backgroundImage: `
-            linear-gradient(rgba(255,30,30,0.04) 1px, transparent 1px),
-            linear-gradient(90deg, rgba(255,30,30,0.04) 1px, transparent 1px)
-          `,
-          backgroundSize: "60px 60px",
-        }}
-      />
-      {/* Radial glow center */}
-      <div
-        className="absolute inset-0"
-        style={{
-          background: "radial-gradient(ellipse 80% 60% at 50% 40%, rgba(220,20,20,0.12) 0%, transparent 70%)",
-        }}
-      />
-      {/* Top glow */}
-      <div
-        className="absolute top-0 left-1/2 -translate-x-1/2 w-px h-64"
-        style={{ background: "linear-gradient(to bottom, rgba(255,30,30,0.8), transparent)" }}
-      />
-    </div>
+    <div
+      className="fixed inset-0 z-0 opacity-20"
+      style={{
+        backgroundImage: `
+          linear-gradient(rgba(220,38,38,0.15) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(220,38,38,0.15) 1px, transparent 1px)
+        `,
+        backgroundSize: "60px 60px",
+      }}
+    />
   );
 }
 
-// ── Texto con efecto typewriter ───────────────────────────────────────────────
-function TypewriterText({ texts }: { texts: string[] }) {
+// ── Typewriter ────────────────────────────────────────────────────────────────
+function Typewriter({ texts }: { texts: string[] }) {
   const [idx, setIdx] = useState(0);
-  const [displayed, setDisplayed] = useState("");
-  const [deleting, setDeleting] = useState(false);
+  const [sub, setSub] = useState(0);
+  const [del, setDel] = useState(false);
 
   useEffect(() => {
-    const full = texts[idx];
-    if (!deleting && displayed.length < full.length) {
-      const t = setTimeout(() => setDisplayed(full.slice(0, displayed.length + 1)), 60);
+    const current = texts[idx];
+    if (!del && sub < current.length) {
+      const t = setTimeout(() => setSub(s => s + 1), 50);
       return () => clearTimeout(t);
     }
-    if (!deleting && displayed.length === full.length) {
-      const t = setTimeout(() => setDeleting(true), 2000);
+    if (!del && sub === current.length) {
+      const t = setTimeout(() => setDel(true), 2000);
       return () => clearTimeout(t);
     }
-    if (deleting && displayed.length > 0) {
-      const t = setTimeout(() => setDisplayed(displayed.slice(0, -1)), 30);
+    if (del && sub > 0) {
+      const t = setTimeout(() => setSub(s => s - 1), 25);
       return () => clearTimeout(t);
     }
-    if (deleting && displayed.length === 0) {
-      setDeleting(false);
-      setIdx((idx + 1) % texts.length);
+    if (del && sub === 0) {
+      setDel(false);
+      setIdx(i => (i + 1) % texts.length);
     }
-  }, [displayed, deleting, idx, texts]);
+  }, [sub, del, idx, texts]);
 
   return (
     <span className="text-red-400">
-      {displayed}
+      {texts[idx].slice(0, sub)}
       <span className="animate-pulse">|</span>
     </span>
   );
 }
 
-// ── Contador animado ──────────────────────────────────────────────────────────
-function Counter({ to, suffix = "" }: { to: number; suffix?: string }) {
-  const [val, setVal] = useState(0);
-  const ref = useRef(false);
+// ── Stats ─────────────────────────────────────────────────────────────────────
+const STATS = [
+  { n: "12.847+", label: "Apps generadas" },
+  { n: "5",       label: "Modelos IA" },
+  { n: "3.201+",  label: "APKs compiladas" },
+  { n: "100%",    label: "Gratis" },
+];
 
-  useEffect(() => {
-    if (ref.current) return;
-    ref.current = true;
-    const duration = 2000;
-    const steps = 60;
-    const inc = to / steps;
-    let current = 0;
-    const timer = setInterval(() => {
-      current += inc;
-      if (current >= to) { setVal(to); clearInterval(timer); }
-      else setVal(Math.floor(current));
-    }, duration / steps);
-    return () => clearInterval(timer);
-  }, [to]);
+// ── Features ──────────────────────────────────────────────────────────────────
+const FEATURES = [
+  { icon: "🤖", title: "5 Modelos IA",        desc: "Gemini, GPT-4, Claude, Mistral y Groq generando apps reales" },
+  { icon: "📱", title: "Flutter Nativo",       desc: "Código Dart real, no templates. APK instalable en minutos" },
+  { icon: "💰", title: "AdMob integrado",      desc: "Cada app que generas lleva tus anuncios. Ingresos pasivos reales" },
+  { icon: "☁️", title: "Compila en la nube",   desc: "Sin instalar nada. Tu APK lista en ~3 min con GitHub Actions" },
+  { icon: "🔒", title: "Tus apps, tus datos",  desc: "Dashboard personal, historial, descarga directa del código" },
+  { icon: "⚡", title: "Sin límites",           desc: "Acceso libre durante el beta. Sin tarjeta, sin suscripción" },
+];
 
-  return <span>{val.toLocaleString("es-ES")}{suffix}</span>;
-}
+// ── Steps ─────────────────────────────────────────────────────────────────────
+const STEPS = [
+  { n: "01", title: "Describe tu app",   desc: "Escribe en español qué quieres. Sin código, sin tecnicismos." },
+  { n: "02", title: "La IA genera",      desc: "5 modelos IA generan código Flutter nativo en segundos." },
+  { n: "03", title: "Compila la APK",    desc: "Un clic y en 3 minutos tienes tu APK lista para instalar." },
+];
 
-// ── Badge feature card ─────────────────────────────────────────────────────────
-function FeatureCard({ icon, title, desc, delay }: { icon: string; title: string; desc: string; delay: number }) {
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 30 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay, duration: 0.6, ease: "easeOut" }}
-      whileHover={{ scale: 1.04, y: -4 }}
-      className="relative p-6 rounded-2xl border border-white/10 cursor-default"
-      style={{
-        background: "linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%)",
-        backdropFilter: "blur(20px)",
-        boxShadow: "0 8px 32px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.08)",
-      }}
-    >
-      <div className="text-3xl mb-3">{icon}</div>
-      <h3 className="text-white font-bold text-lg mb-1">{title}</h3>
-      <p className="text-white/50 text-sm leading-relaxed">{desc}</p>
-      {/* Glow corner */}
-      <div className="absolute top-0 right-0 w-20 h-20 rounded-full opacity-20 blur-2xl bg-red-500 -translate-y-1/2 translate-x-1/2" />
-    </motion.div>
-  );
-}
-
-// ── MAIN ──────────────────────────────────────────────────────────────────────
+// ── Main Component ────────────────────────────────────────────────────────────
 export default function Index() {
   const { user, signIn, signOut } = useAuth();
   const navigate = useNavigate();
@@ -164,7 +116,7 @@ export default function Index() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [focused, setFocused] = useState<string | null>(null);
+  const [showForm, setShowForm] = useState(false);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -177,53 +129,36 @@ export default function Index() {
     else setError("Error al iniciar sesión. Prueba con cualquier email.");
   };
 
-  const stats = [
-    { label: "Apps generadas", value: 12847, suffix: "+" },
-    { label: "Modelos IA", value: 5, suffix: "" },
-    { label: "APKs compiladas", value: 3201, suffix: "+" },
-    { label: "% gratis", value: 100, suffix: "%" },
-  ];
-
-  const features = [
-    { icon: "🤖", title: "5 Modelos IA", desc: "Gemini, GPT-4, Claude, Mistral y Groq generando apps reales", delay: 0.4 },
-    { icon: "📱", title: "Flutter Nativo", desc: "Código Dart real, no templates. APK instalable en minutos", delay: 0.5 },
-    { icon: "💰", title: "AdMob integrado", desc: "Cada app que generas lleva tus anuncios. Ingresos pasivos reales", delay: 0.6 },
-    { icon: "☁️", title: "Compila en la nube", desc: "Sin instalar nada. Tu APK lista en ~3 minutos con GitHub Actions", delay: 0.7 },
-    { icon: "🔒", title: "Tus apps, tus datos", desc: "Dashboard personal, historial, descarga directa del código", delay: 0.8 },
-    { icon: "⚡", title: "Sin límites", desc: "Acceso libre durante el beta. Sin tarjeta, sin suscripción", delay: 0.9 },
-  ];
-
+  // Si ya está autenticado — pantalla simple
   if (user) {
     return (
-      <div className="min-h-screen bg-[#050508] text-white flex flex-col items-center justify-center relative overflow-hidden">
-        <GridBackground />
+      <div className="min-h-screen bg-[#050508] text-white flex flex-col items-center justify-center relative">
         <Particles />
+        <GridBg />
         <motion.div
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
-          className="relative z-10 text-center space-y-6 p-8"
+          className="relative z-10 text-center space-y-6"
         >
-          <motion.div className="text-7xl mb-4" animate={{ rotate: [0, 10, -10, 0] }} transition={{ duration: 2, repeat: Infinity }}>
-            ⚡
-          </motion.div>
-          <h1 className="text-4xl font-black">Bienvenido de nuevo</h1>
-          <p className="text-white/60 text-lg">{user.email}</p>
-          <div className="flex flex-col gap-3 w-72 mx-auto">
-            <motion.button
-              whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
+          <div className="text-5xl font-black">⚡ NexusAI</div>
+          <p className="text-white/60">Bienvenido, {user.email}</p>
+          <div className="flex flex-col gap-3 w-64 mx-auto">
+            <button
               onClick={() => navigate("/dashboard")}
-              className="w-full py-4 rounded-2xl font-bold text-lg bg-gradient-to-r from-red-600 to-red-500 hover:from-red-500 hover:to-red-400 transition-all shadow-lg shadow-red-900/40"
+              className="bg-red-600 hover:bg-red-500 text-white font-bold py-3 rounded-xl transition-all"
             >
-              Dashboard
-            </motion.button>
-            <motion.button
-              whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
+              Ir al Dashboard
+            </button>
+            <button
               onClick={() => navigate("/builder")}
-              className="w-full py-4 rounded-2xl font-bold text-lg border border-white/20 hover:border-red-500/50 hover:bg-white/5 transition-all"
+              className="bg-white/10 hover:bg-white/15 text-white font-bold py-3 rounded-xl border border-white/10 transition-all"
             >
-              🚀 Crear App
-            </motion.button>
-            <button onClick={signOut} className="text-white/30 text-sm hover:text-white/60 transition-colors mt-2">
+              Crear App con IA
+            </button>
+            <button
+              onClick={signOut}
+              className="text-white/40 hover:text-white/70 text-sm transition-colors"
+            >
               Cerrar sesión
             </button>
           </div>
@@ -234,265 +169,186 @@ export default function Index() {
 
   return (
     <div className="min-h-screen bg-[#050508] text-white overflow-x-hidden">
-      <GridBackground />
       <Particles />
+      <GridBg />
 
       {/* ── NAV ── */}
       <motion.nav
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="relative z-20 flex items-center justify-between px-6 py-5 max-w-6xl mx-auto"
+        className="relative z-10 flex items-center justify-between px-6 py-4 max-w-6xl mx-auto"
       >
         <div className="flex items-center gap-2">
-          <span className="text-2xl">⚡</span>
-          <span className="font-black text-xl tracking-tight">NexusAI</span>
-          <span className="text-xs text-red-400 border border-red-500/30 rounded-full px-2 py-0.5 ml-1">BETA</span>
+          <span className="text-xl">⚡</span>
+          <span className="font-black text-lg tracking-tight">NexusAI</span>
+          <span className="text-[10px] bg-red-600/30 text-red-400 px-2 py-0.5 rounded-full font-bold border border-red-500/30">BETA</span>
         </div>
-        <div className="hidden md:flex items-center gap-6 text-white/50 text-sm">
-          <span className="hover:text-white cursor-pointer transition-colors">Características</span>
-          <span className="hover:text-white cursor-pointer transition-colors">Precios</span>
-          <span className="hover:text-white cursor-pointer transition-colors">Docs</span>
+        <div className="hidden md:flex items-center gap-8 text-sm text-white/50">
+          <a href="#features" className="hover:text-white transition-colors">Características</a>
+          <a href="#how" className="hover:text-white transition-colors">Cómo funciona</a>
         </div>
         <motion.button
-          whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
-          onClick={() => document.getElementById("login-form")?.scrollIntoView({ behavior: "smooth" })}
-          className="text-sm font-semibold px-5 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 border border-white/10 transition-all"
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+          onClick={() => setShowForm(true)}
+          className="bg-white text-black text-sm font-bold px-4 py-2 rounded-lg hover:bg-white/90 transition-all"
         >
           Entrar →
         </motion.button>
       </motion.nav>
 
       {/* ── HERO ── */}
-      <section className="relative z-10 max-w-5xl mx-auto px-6 pt-16 pb-24 text-center">
-        {/* Badge */}
+      <section className="relative z-10 max-w-5xl mx-auto px-6 pt-16 pb-12 text-center">
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
-          className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-red-500/30 bg-red-500/10 text-red-400 text-sm font-medium mb-8"
+          className="inline-flex items-center gap-2 bg-red-950/40 border border-red-500/20 rounded-full px-4 py-1.5 text-sm text-red-300 mb-8"
         >
-          <span className="w-2 h-2 rounded-full bg-red-400 animate-pulse" />
+          <div className="w-1.5 h-1.5 bg-red-400 rounded-full animate-pulse" />
           Generador de apps nativas con IA — Flutter real
         </motion.div>
 
-        {/* Título principal */}
         <motion.h1
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
-          className="text-5xl md:text-7xl font-black leading-none tracking-tight mb-6"
+          className="text-6xl md:text-8xl font-black leading-none tracking-tight mb-6"
         >
-          Crea apps
-          <br />
-          <span
-            className="bg-clip-text text-transparent"
-            style={{ backgroundImage: "linear-gradient(135deg, #ff1e1e 0%, #ff6b6b 50%, #ff1e1e 100%)" }}
-          >
+          Crea apps<br />
+          <span className="text-red-500" style={{ textShadow: "0 0 60px rgba(239,68,68,0.4)" }}>
             con IA real
           </span>
         </motion.h1>
 
         <motion.p
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.3 }}
-          className="text-xl text-white/50 max-w-2xl mx-auto mb-4 leading-relaxed"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.35 }}
+          className="text-xl text-white/50 mb-2"
         >
           Describe tu idea.{" "}
-          <TypewriterText texts={[
-            "NexusAI genera el código Flutter.",
+          <Typewriter texts={[
             "Compilamos la APK en 3 minutos.",
-            "AdMob monetiza cada instalación.",
-            "Todo gratis. Sin límites.",
+            "Sin código. Sin complicaciones.",
+            "Flutter nativo. AdMob integrado.",
+            "Gratis durante el beta.",
           ]} />
         </motion.p>
 
         {/* Stats */}
         <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.5 }}
-          className="flex flex-wrap justify-center gap-8 my-12"
+          className="grid grid-cols-4 gap-4 max-w-2xl mx-auto mt-10 mb-10"
         >
-          {stats.map((s, i) => (
-            <div key={i} className="text-center">
-              <div className="text-3xl font-black text-white">
-                <Counter to={s.value} suffix={s.suffix} />
-              </div>
-              <div className="text-white/40 text-xs mt-1 uppercase tracking-widest">{s.label}</div>
+          {STATS.map(s => (
+            <div key={s.n} className="text-center">
+              <div className="text-2xl font-black text-white">{s.n}</div>
+              <div className="text-xs text-white/40 uppercase tracking-wider mt-1">{s.label}</div>
             </div>
           ))}
         </motion.div>
 
-        {/* ── LOGIN FORM ── */}
+        {/* CTA */}
         <motion.div
-          id="login-form"
-          initial={{ opacity: 0, y: 30 }}
+          initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.4 }}
-          className="max-w-sm mx-auto"
+          transition={{ delay: 0.6 }}
+          className="flex flex-col items-center gap-4"
         >
-          <div
-            className="p-8 rounded-3xl border border-white/10"
-            style={{
-              background: "linear-gradient(135deg, rgba(255,255,255,0.07) 0%, rgba(255,255,255,0.02) 100%)",
-              backdropFilter: "blur(30px)",
-              boxShadow: "0 25px 60px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.1)",
-            }}
+          <motion.button
+            whileHover={{ scale: 1.03, boxShadow: "0 0 40px rgba(239,68,68,0.4)" }}
+            whileTap={{ scale: 0.97 }}
+            onClick={() => setShowForm(true)}
+            className="bg-red-600 hover:bg-red-500 text-white font-bold text-lg px-10 py-4 rounded-2xl transition-all"
+            style={{ boxShadow: "0 0 30px rgba(239,68,68,0.25)" }}
           >
-            <h2 className="text-xl font-black mb-6 text-center">Empieza gratis</h2>
-            <form onSubmit={handleLogin} className="space-y-4">
-              <div className="relative">
-                <input
-                  type="email"
-                  placeholder="tu@email.com"
-                  value={email}
-                  onChange={e => setEmail(e.target.value)}
-                  onFocus={() => setFocused("email")}
-                  onBlur={() => setFocused(null)}
-                  autoComplete="email"
-                  className="w-full px-4 py-3.5 rounded-xl text-white placeholder-white/30 outline-none transition-all text-sm"
-                  style={{
-                    background: "rgba(255,255,255,0.06)",
-                    border: `1px solid ${focused === "email" ? "rgba(255,30,30,0.6)" : "rgba(255,255,255,0.1)"}`,
-                    boxShadow: focused === "email" ? "0 0 20px rgba(255,30,30,0.15)" : "none",
-                  }}
-                />
-              </div>
-              <div className="relative">
-                <input
-                  type="password"
-                  placeholder="Contraseña (opcional)"
-                  value={password}
-                  onChange={e => setPassword(e.target.value)}
-                  onFocus={() => setFocused("pass")}
-                  onBlur={() => setFocused(null)}
-                  className="w-full px-4 py-3.5 rounded-xl text-white placeholder-white/30 outline-none transition-all text-sm"
-                  style={{
-                    background: "rgba(255,255,255,0.06)",
-                    border: `1px solid ${focused === "pass" ? "rgba(255,30,30,0.6)" : "rgba(255,255,255,0.1)"}`,
-                    boxShadow: focused === "pass" ? "0 0 20px rgba(255,30,30,0.15)" : "none",
-                  }}
-                />
-              </div>
-
-              <AnimatePresence>
-                {error && (
-                  <motion.p
-                    initial={{ opacity: 0, y: -5 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-                    className="text-red-400 text-xs text-center"
-                  >
-                    {error}
-                  </motion.p>
-                )}
-              </AnimatePresence>
-
-              <motion.button
-                whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
-                type="submit"
-                disabled={loading}
-                className="w-full py-4 rounded-xl font-black text-base relative overflow-hidden transition-all"
-                style={{
-                  background: "linear-gradient(135deg, #dc2020 0%, #ff4444 100%)",
-                  boxShadow: "0 8px 30px rgba(220,32,32,0.4)",
-                }}
-              >
-                {loading ? (
-                  <span className="flex items-center justify-center gap-2">
-                    <svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none">
-                      <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" strokeDasharray="32" strokeDashoffset="12" />
-                    </svg>
-                    Entrando...
-                  </span>
-                ) : (
-                  "Entrar gratis →"
-                )}
-              </motion.button>
-            </form>
-            <p className="text-center text-white/25 text-xs mt-4">
-              Sin registro real — cualquier email vale
-            </p>
-          </div>
+            Empieza gratis ahora →
+          </motion.button>
+          <p className="text-white/30 text-sm">Sin registro real — cualquier email vale</p>
         </motion.div>
       </section>
 
-      {/* ── FEATURES GRID ── */}
-      <section className="relative z-10 max-w-5xl mx-auto px-6 py-20">
+      {/* ── FEATURES ── */}
+      <section id="features" className="relative z-10 max-w-5xl mx-auto px-6 py-20">
         <motion.h2
           initial={{ opacity: 0 }}
           whileInView={{ opacity: 1 }}
           viewport={{ once: true }}
           className="text-3xl font-black text-center mb-12"
         >
-          Todo lo que necesitas para{" "}
-          <span className="text-red-400">monetizar</span>
+          Todo lo que necesitas para monetizar
         </motion.h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {features.map((f, i) => (
-            <FeatureCard key={i} {...f} />
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {FEATURES.map((f, i) => (
+            <motion.div
+              key={f.title}
+              initial={{ opacity: 0, y: 30 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: i * 0.08 }}
+              whileHover={{ scale: 1.02, borderColor: "rgba(239,68,68,0.3)" }}
+              className="p-6 rounded-2xl border border-white/8 transition-all cursor-default"
+              style={{ background: "linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%)" }}
+            >
+              <div className="text-3xl mb-3">{f.icon}</div>
+              <div className="font-bold text-white mb-2">{f.title}</div>
+              <div className="text-sm text-white/50">{f.desc}</div>
+            </motion.div>
           ))}
         </div>
       </section>
 
       {/* ── HOW IT WORKS ── */}
-      <section className="relative z-10 max-w-4xl mx-auto px-6 py-20">
+      <section id="how" className="relative z-10 max-w-4xl mx-auto px-6 py-20">
         <motion.h2
           initial={{ opacity: 0 }}
           whileInView={{ opacity: 1 }}
           viewport={{ once: true }}
-          className="text-3xl font-black text-center mb-16"
+          className="text-3xl font-black text-center mb-14"
         >
-          Tres pasos. Una APK.
+          Tres pasos para tener tu app
         </motion.h2>
-        <div className="flex flex-col md:flex-row gap-4 items-stretch">
-          {[
-            { n: "01", title: "Describe tu app", desc: "Escribe en español lo que quieres. NexusAI entiende tu idea." },
-            { n: "02", title: "IA genera Flutter", desc: "Código Dart real, con AdMob integrado y diseño Material 3." },
-            { n: "03", title: "Descarga tu APK", desc: "GitHub Actions compila en la nube. APK lista en ~3 minutos." },
-          ].map((s, i) => (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          {STEPS.map((s, i) => (
             <motion.div
-              key={i}
-              initial={{ opacity: 0, x: -20 }}
-              whileInView={{ opacity: 1, x: 0 }}
+              key={s.n}
+              initial={{ opacity: 0, y: 30 }}
+              whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ delay: i * 0.15 }}
-              className="flex-1 p-6 rounded-2xl border border-white/8 relative overflow-hidden"
-              style={{ background: "rgba(255,255,255,0.03)" }}
+              className="text-center"
             >
-              <div className="text-6xl font-black text-white/5 absolute top-2 right-4 leading-none select-none">
+              <div
+                className="w-16 h-16 rounded-2xl flex items-center justify-center text-2xl font-black mx-auto mb-4 border border-red-500/30"
+                style={{ background: "rgba(239,68,68,0.1)" }}
+              >
                 {s.n}
               </div>
-              <div
-                className="text-xs font-bold text-red-400 border border-red-500/30 rounded-full px-3 py-1 inline-block mb-4"
-                style={{ background: "rgba(220,32,32,0.1)" }}
-              >
-                Paso {s.n}
-              </div>
-              <h3 className="text-lg font-bold mb-2">{s.title}</h3>
-              <p className="text-white/40 text-sm leading-relaxed">{s.desc}</p>
+              <div className="font-bold text-white mb-2">{s.title}</div>
+              <div className="text-sm text-white/50">{s.desc}</div>
             </motion.div>
           ))}
         </div>
 
-        {/* CTA final */}
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
+          initial={{ opacity: 0 }}
+          whileInView={{ opacity: 1 }}
           viewport={{ once: true }}
+          transition={{ delay: 0.4 }}
           className="text-center mt-16"
         >
           <motion.button
-            whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
-            onClick={() => document.getElementById("login-form")?.scrollIntoView({ behavior: "smooth" })}
-            className="px-10 py-5 rounded-2xl font-black text-xl"
-            style={{
-              background: "linear-gradient(135deg, #dc2020, #ff4444)",
-              boxShadow: "0 20px 60px rgba(220,32,32,0.35)",
-            }}
+            whileHover={{ scale: 1.05, boxShadow: "0 0 40px rgba(239,68,68,0.4)" }}
+            whileTap={{ scale: 0.95 }}
+            onClick={() => setShowForm(true)}
+            className="bg-red-600 hover:bg-red-500 text-white font-bold text-lg px-10 py-4 rounded-2xl transition-all"
           >
             Crear mi primera app →
           </motion.button>
-          <p className="text-white/30 text-sm mt-4">Gratis. Sin tarjeta. Sin registro.</p>
+          <p className="text-white/30 text-sm mt-3">100% gratis · Sin tarjeta · Listo en 3 minutos</p>
         </motion.div>
       </section>
 
@@ -501,6 +357,74 @@ export default function Index() {
         <p>⚡ NexusAI Studio · <span className="text-red-500/60">r3dm/joan</span> · 2024</p>
         <p className="mt-1 text-xs">Powered by Flutter · GitHub Actions · AdMob · Supabase</p>
       </footer>
+
+      {/* ── MODAL LOGIN ── */}
+      <AnimatePresence>
+        {showForm && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4"
+            style={{ background: "rgba(0,0,0,0.85)", backdropFilter: "blur(10px)" }}
+            onClick={() => setShowForm(false)}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              onClick={e => e.stopPropagation()}
+              className="w-full max-w-md rounded-3xl p-8 border border-white/10"
+              style={{ background: "linear-gradient(135deg, rgba(20,20,30,0.98) 0%, rgba(10,10,20,0.98) 100%)" }}
+            >
+              <div className="text-center mb-8">
+                <div className="text-4xl mb-3">⚡</div>
+                <h2 className="text-2xl font-black">Empieza gratis</h2>
+                <p className="text-white/40 text-sm mt-1">Sin registro real — cualquier email vale</p>
+              </div>
+
+              <form onSubmit={handleLogin} className="space-y-4">
+                <input
+                  type="email"
+                  placeholder="tu@email.com"
+                  value={email}
+                  onChange={e => setEmail(e.target.value)}
+                  autoFocus
+                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-white/30 focus:outline-none focus:border-red-500/50 transition-colors"
+                />
+                <input
+                  type="password"
+                  placeholder="Contraseña (opcional)"
+                  value={password}
+                  onChange={e => setPassword(e.target.value)}
+                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-white/30 focus:outline-none focus:border-red-500/50 transition-colors"
+                />
+                {error && (
+                  <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-red-400 text-sm text-center">
+                    {error}
+                  </motion.p>
+                )}
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  type="submit"
+                  disabled={loading}
+                  className="w-full bg-red-600 hover:bg-red-500 disabled:opacity-50 text-white font-bold py-3.5 rounded-xl transition-all text-lg"
+                >
+                  {loading ? "Entrando..." : "Entrar gratis →"}
+                </motion.button>
+              </form>
+
+              <button
+                onClick={() => setShowForm(false)}
+                className="w-full mt-4 text-white/30 hover:text-white/60 text-sm transition-colors"
+              >
+                Cancelar
+              </button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
