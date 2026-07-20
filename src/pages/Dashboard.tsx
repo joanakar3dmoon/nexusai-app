@@ -320,9 +320,6 @@ export default function Dashboard() {
       localStorage.removeItem("nexusai_pending_upgrade");
       localStorage.removeItem("nexusai_pending_sub_id");
     } catch {
-      // no critical
-      }
-    } catch {
       setSubMsg("Error al activar. Escríbenos a joanlazaro83@gmail.com con tu recibo.");
     }
     setSubscribing(false);
