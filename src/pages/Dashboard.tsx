@@ -492,6 +492,11 @@ export default function Dashboard() {
               <Settings className="w-4 h-4" /> Panel Admin
             </button>
           )}
+          {!installed && installPrompt && (
+            <button onClick={handleInstall} className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-purple-400 hover:text-purple-300 hover:bg-purple-500/10 cursor-pointer">
+              <span>📲</span> Instalar App
+            </button>
+          )}
           <button onClick={signOut} className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-secondary/50 cursor-pointer">
             <LogOut className="w-4 h-4" /> Cerrar sesión
           </button>
