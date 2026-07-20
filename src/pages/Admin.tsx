@@ -361,8 +361,8 @@ Devuelve SOLO el HTML. Cero explicaciones, cero markdown.`;
       const data = await res.json();
       let code: string = data.choices?.[0]?.message?.content ?? "";
       code = code.replace(/<think>[\s\S]*?<\/think>/gi, "").trim();
-      if (code.includes("\`\`\`html")) code = code.split("\`\`\`html")[1].split("\`\`\`")[0].trim();
-      else if (code.includes("\`\`\`")) code = code.split("\`\`\`")[1].split("\`\`\`")[0].trim();
+      if (code.includes("```html")) code = code.split("```html")[1].split("```")[0].trim();
+      else if (code.includes("```")) code = code.split("```")[1].split("```")[0].trim();
       if (code.length > 300 && code.includes("</html>")) return code;
     } catch(e) { console.warn(`[NexusAI] modelo ${model} excepción:`, e); continue; }
   }
@@ -652,7 +652,7 @@ export default function Admin() {
     const ok = await dbApprovePremium(sub.user_id, sub.id);
     if (ok) {
       setSubscriptions(prev => prev.map(s => s.id === sub.id ? {...s, status: "active"} : s));
-      setApprovedNote(\`✅ Premium activado para \${sub.user_email}\`);
+      setApprovedNote(`✅ Premium activado para \${sub.user_email}`);
       setTimeout(() => setApprovedNote(null), 4000);
     }
   }
@@ -710,7 +710,7 @@ export default function Admin() {
     if (!amt || amt <= 0) { setReinvestMsg("Introduce un importe válido"); return; }
     const ok = await dbAddRevenueSafe({ source: "subscription", amount: -amt, note: "Reinversión en créditos" });
     if (ok) {
-      setReinvestMsg(\`✅ €\${amt} reinvertidos en créditos del sistema\`);
+      setReinvestMsg(`✅ €\${amt} reinvertidos en créditos del sistema`);
       setReinvestAmount("");
       const total = await dbGetTotalRevenueSafe();
       setTotalRevReal(total);
