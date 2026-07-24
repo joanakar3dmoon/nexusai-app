@@ -19,7 +19,7 @@ import com.google.android.gms.ads.AdView;
 import com.google.android.gms.ads.MobileAds;
 import com.google.android.gms.ads.interstitial.InterstitialAd;
 import com.google.android.gms.ads.interstitial.InterstitialAdLoadCallback;
-import com.google.android.gms.ads.AdError;
+import com.google.android.gms.ads.LoadAdError;
 
 public class MainActivity extends Activity {
     private WebView webView;
@@ -139,7 +139,7 @@ public class MainActivity extends Activity {
                     adLoading = false;
                 }
                 @Override
-                public void onAdFailedToLoad(AdError err) {
+                public void onAdFailedToLoad(LoadAdError err) {
                     adLoading = false;
                 }
             });
