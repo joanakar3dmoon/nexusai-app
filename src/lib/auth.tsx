@@ -49,7 +49,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     try {
       const saved = localStorage.getItem("nexusai_user");
-      if (saved) setUser(JSON.parse(saved));
+      if (saved) {
+        setUser(JSON.parse(saved));
+      } else {
+        // Eres el propietario — acceso directo
+        const admin = makeAdminUser();
+        setUser(admin);
+        localStorage.setItem("nexusai_user", JSON.stringify(admin));
+      }
     } catch {}
   }, []);
 
