@@ -12,12 +12,11 @@ import android.widget.ProgressBar;
 import android.widget.FrameLayout;
 import android.graphics.Color;
 import android.os.Build;
+import android.view.View;
 import com.google.android.gms.ads.AdRequest;
 import com.google.android.gms.ads.AdSize;
 import com.google.android.gms.ads.AdView;
 import com.google.android.gms.ads.MobileAds;
-import com.google.android.gms.ads.initialization.InitializationStatus;
-import com.google.android.gms.ads.initialization.OnInitializationCompleteListener;
 
 public class MainActivity extends Activity {
     private WebView webView;
@@ -29,72 +28,83 @@ public class MainActivity extends Activity {
         super.onCreate(savedInstanceState);
         requestWindowFeature(Window.FEATURE_NO_TITLE);
         getWindow().setFlags(WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED,
-                WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED);
+                             WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED);
 
         // Inicializar AdMob
-        MobileAds.initialize(this, new OnInitializationCompleteListener() {
-            @Override
-            public void onInitializationComplete(InitializationStatus initializationStatus) {}
-        });
+        MobileAds.initialize(this, initializationStatus -> {});
 
         // Layout principal
-        LinearLayout layout = new LinearLayout(this);
-        layout.setOrientation(LinearLayout.VERTICAL);
-        layout.setBackgroundColor(Color.parseColor("#080b14"));
+        LinearLayout root = new LinearLayout(this);
+        root.setOrientation(LinearLayout.VERTICAL);
+        root.setBackgroundColor(Color.parseColor("#0f0f1a"));
 
-        // ProgressBar (arriba)
+        // ProgressBar
         progressBar = new ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal);
         progressBar.setLayoutParams(new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, 6));
+            LinearLayout.LayoutParams.MATCH_PARENT, 4));
         progressBar.setBackgroundColor(Color.parseColor("#1a1a2e"));
-        progressBar.setProgressDrawable(getResources().getDrawable(android.R.drawable.progress_horizontal));
-        progressBar.setVisibility(ProgressBar.GONE);
+        progressBar.getIndeterminateDrawable().setColorFilter(
+            Color.parseColor("#7c3aed"), android.graphics.PorterDuff.Mode.SRC_IN);
+        progressBar.setIndeterminate(true);
 
         // WebView
         webView = new WebView(this);
         LinearLayout.LayoutParams wvParams = new LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f);
         webView.setLayoutParams(wvParams);
-        webView.setBackgroundColor(Color.parseColor("#080b14"));
+        webView.setBackgroundColor(Color.parseColor("#0f0f1a"));
 
         WebSettings s = webView.getSettings();
         s.setJavaScriptEnabled(true);
         s.setDomStorageEnabled(true);
         s.setLoadWithOverviewMode(true);
         s.setUseWideViewPort(true);
-        s.setBuiltInZoomControls(false);
-        s.setDisplayZoomControls(false);
+        s.setCacheMode(WebSettings.LOAD_DEFAULT);
+        s.setMixedContentMode(WebSettings.MIXED_CONTENT_ALWAYS_ALLOW);
         s.setAllowFileAccess(false);
-        s.setAllowContentAccess(true);
+        s.setAllowContentAccess(false);
+        s.setGeolocationEnabled(false);
+        s.setSaveFormData(false);
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            s.setSafeBrowsingEnabled(false);
+        }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
             s.setMixedContentMode(WebSettings.MIXED_CONTENT_ALWAYS_ALLOW);
         }
-        s.setCacheMode(WebSettings.LOAD_DEFAULT);
-        s.setDatabaseEnabled(true);
-        s.setAppCacheEnabled(true);
 
-        // WebViewClient para cargar URLs dentro del WebView
+        // Force dark theme
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            s.setForceDark(WebSettings.FORCE_DARK_ON);
+        }
+
         webView.setWebViewClient(new WebViewClient() {
             @Override
+            public void onPageStarted(WebView view, String url, android.graphics.Bitmap favicon) {
+                progressBar.setVisibility(View.VISIBLE);
+            }
+            @Override
             public void onPageFinished(WebView view, String url) {
-                progressBar.setVisibility(ProgressBar.GONE);
+                progressBar.setVisibility(View.GONE);
+                // Inject splash removal
+                view.evaluateJavascript(
+                    "document.getElementById('splash-screen')?.remove();" +
+                    "document.querySelector('[data-splash]')?.remove();" +
+                    "document.body.style.backgroundColor = '#0f0f1a';" +
+                    "true;", null);
             }
         });
-
-        // WebChromeClient para progreso de carga
         webView.setWebChromeClient(new WebChromeClient() {
             @Override
             public void onProgressChanged(WebView view, int newProgress) {
                 if (newProgress < 100) {
-                    progressBar.setVisibility(ProgressBar.VISIBLE);
-                    progressBar.setProgress(newProgress);
+                    progressBar.setVisibility(View.VISIBLE);
                 } else {
-                    progressBar.setVisibility(ProgressBar.GONE);
+                    progressBar.setVisibility(View.GONE);
                 }
             }
         });
 
-        // Cargar la URL
         webView.loadUrl("https://nexusai-app-seven.vercel.app");
 
         // Banner AdMob en la parte inferior
@@ -104,10 +114,10 @@ public class MainActivity extends Activity {
         AdRequest adRequest = new AdRequest.Builder().build();
         adView.loadAd(adRequest);
 
-        layout.addView(progressBar);
-        layout.addView(webView);
-        layout.addView(adView);
-        setContentView(layout);
+        root.addView(progressBar);
+        root.addView(webView);
+        root.addView(adView);
+        setContentView(root);
     }
 
     @Override
