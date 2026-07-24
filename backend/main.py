@@ -21,6 +21,8 @@ app.add_middleware(
         "http://localhost:4173",
         "https://joanakar3dmoon.github.io",
         "https://*.convex.cloud",
+        "https://nexusai-app.vercel.app",
+        "https://nexusai-i0fwuhptc-joanlazaro83-8917s-projects.vercel.app",
     ],
     allow_credentials=True,
     allow_methods=["*"],
