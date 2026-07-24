@@ -17,10 +17,15 @@ import com.google.android.gms.ads.AdRequest;
 import com.google.android.gms.ads.AdSize;
 import com.google.android.gms.ads.AdView;
 import com.google.android.gms.ads.MobileAds;
+import com.google.android.gms.ads.interstitial.InterstitialAd;
+import com.google.android.gms.ads.interstitial.InterstitialAdLoadCallback;
+import com.google.android.gms.ads.AdError;
 
 public class MainActivity extends Activity {
     private WebView webView;
     private AdView adView;
+    private InterstitialAd mInterstitialAd;
+    private boolean adLoading = false;
     private ProgressBar progressBar;
 
     @Override
@@ -114,10 +119,38 @@ public class MainActivity extends Activity {
         AdRequest adRequest = new AdRequest.Builder().build();
         adView.loadAd(adRequest);
 
+        loadInterstitial();
+
         root.addView(progressBar);
         root.addView(webView);
         root.addView(adView);
         setContentView(root);
+    }
+
+    private void loadInterstitial() {
+        if (adLoading) return;
+        adLoading = true;
+        AdRequest req = new AdRequest.Builder().build();
+        InterstitialAd.load(this, "ca-app-pub-4903263409458961/4622591073", req,
+            new InterstitialAdLoadCallback() {
+                @Override
+                public void onAdLoaded(InterstitialAd ad) {
+                    mInterstitialAd = ad;
+                    adLoading = false;
+                }
+                @Override
+                public void onAdFailedToLoad(AdError err) {
+                    adLoading = false;
+                }
+            });
+    }
+
+    private void showInterstitialIfReady() {
+        if (mInterstitialAd != null) {
+            mInterstitialAd.show(MainActivity.this);
+            mInterstitialAd = null;
+            loadInterstitial();
+        }
     }
 
     @Override
