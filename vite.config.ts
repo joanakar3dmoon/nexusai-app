@@ -8,7 +8,7 @@ export default defineConfig(({ mode }) => ({
     react(),
     tailwindcss(),
   ],
-  base: mode === "capacitor" ? "./" : "/nexusai-app/",
+  base: mode === "capacitor" ? "./" : "/",
   resolve: {
     alias: {
       "@": resolve(__dirname, "src"),
