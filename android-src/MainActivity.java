@@ -103,7 +103,7 @@ public class MainActivity extends Activity {
             }
             @Override
             public void onReceivedError(WebView view, int errorCode, String description, String failingUrl) {
-                android.util.Log.e(\"NexusAI\", \"Error: \" + errorCode + \" - \" + description + \" - \" + failingUrl);
+                android.util.Log.e("NexusAI", "Error: " + errorCode + " - " + description + " - " + failingUrl);
             }
         });
         webView.setWebChromeClient(new WebChromeClient() {
