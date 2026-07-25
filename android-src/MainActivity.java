@@ -48,8 +48,10 @@ public class MainActivity extends Activity {
         progressBar.setLayoutParams(new LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.MATCH_PARENT, 4));
         progressBar.setBackgroundColor(Color.parseColor("#1a1a2e"));
-        progressBar.getIndeterminateDrawable().setColorFilter(
-            Color.parseColor("#7c3aed"), android.graphics.PorterDuff.Mode.SRC_IN);
+        if (progressBar.getIndeterminateDrawable() != null) {
+            progressBar.getIndeterminateDrawable().setColorFilter(
+                Color.parseColor("#7c3aed"), android.graphics.PorterDuff.Mode.SRC_IN);
+        }
         progressBar.setIndeterminate(true);
 
         // WebView
@@ -91,12 +93,17 @@ public class MainActivity extends Activity {
             @Override
             public void onPageFinished(WebView view, String url) {
                 progressBar.setVisibility(View.GONE);
-                // Inject splash removal
                 view.evaluateJavascript(
                     "document.getElementById('splash-screen')?.remove();" +
                     "document.querySelector('[data-splash]')?.remove();" +
+                    "if(document.querySelector('#root')) document.querySelector('#root').style.display='block';" +
+                    "document.body.style.display='block';" +
                     "document.body.style.backgroundColor = '#0f0f1a';" +
                     "true;", null);
+            }
+            @Override
+            public void onReceivedError(WebView view, int errorCode, String description, String failingUrl) {
+                android.util.Log.e(\"NexusAI\", \"Error: \" + errorCode + \" - \" + description + \" - \" + failingUrl);
             }
         });
         webView.setWebChromeClient(new WebChromeClient() {
