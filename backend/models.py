@@ -70,7 +70,7 @@ class Transaction(Base):
     currency = Column(String, default="EUR")
     status = Column(String, default="completed")  # pending, completed, failed
     description = Column(String, default="")
-    metadata_json = Column(JSON, default=dict, name="metadata")
+    metadata_json = Column(JSON, default=dict, name="metadata_json")
     created_at = Column(DateTime, default=now)
 
     user = relationship("User", back_populates="transactions")
